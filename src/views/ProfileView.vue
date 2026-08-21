@@ -48,6 +48,8 @@ const user = computed(() => currentUser());
 const avatarInput = ref(null);
 const pendingAvatar = ref(null);
 const avatarRemoved = ref(false);
+const AVATAR_MAX_SIZE = 512;
+const AVATAR_TARGET_BYTES = 480 * 1024;
 const form = reactive({
   display_name: user.value?.display_name || ''
 });
@@ -79,7 +81,7 @@ async function pickAvatar(event) {
   if (!file) return;
 
   try {
-    const processed = await compressImage(file, 320, 0.82, 200 * 1024);
+    const processed = await compressImage(file, AVATAR_MAX_SIZE, 0.82, AVATAR_TARGET_BYTES);
     pendingAvatar.value = {
       name: file.name,
       dataUrl: processed.dataUrl || processed.previewUrl,

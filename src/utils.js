@@ -189,6 +189,17 @@ async function canvasToBlob(canvas, quality) {
   });
 }
 
+function formatFileSize(bytes) {
+  const value = Number(bytes) || 0;
+  if (value >= 1024 * 1024) {
+    return `${(value / 1024 / 1024).toFixed(1).replace(/\.0$/, '')}MB`;
+  }
+  if (value >= 1024) {
+    return `${Math.ceil(value / 1024)}KB`;
+  }
+  return `${value}B`;
+}
+
 export async function compressImage(file, maxSize = 1600, quality = 0.82, targetBytes = 1048576) {
   if (!file?.type?.startsWith('image/')) {
     throw new Error('请选择图片文件');
@@ -199,9 +210,10 @@ export async function compressImage(file, maxSize = 1600, quality = 0.82, target
   const sourceHeight = source.height || source.naturalHeight || 1;
   const qualitySteps = [quality, 0.72, 0.62, 0.52, 0.42];
   let currentMaxSize = maxSize;
+  const minMaxSize = Math.min(96, Math.max(1, maxSize));
   let best = null;
 
-  while (currentMaxSize >= 480) {
+  while (currentMaxSize >= minMaxSize) {
     const ratio = Math.min(1, currentMaxSize / Math.max(sourceWidth, sourceHeight));
     const width = Math.max(1, Math.round(sourceWidth * ratio));
     const height = Math.max(1, Math.round(sourceHeight * ratio));
@@ -249,5 +261,5 @@ export async function compressImage(file, maxSize = 1600, quality = 0.82, target
     };
   }
 
-  throw new Error('图片压缩后仍超过 1MB，请选择更小的图片');
+  throw new Error(`图片压缩后仍超过 ${formatFileSize(targetBytes)}，请选择更小的图片`);
 }
