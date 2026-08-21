@@ -77,7 +77,9 @@
 
                     <div v-if="row.cells[column.id]?.images?.length" class="cell-thumb-grid">
                       <div v-for="image in row.cells[column.id].images" :key="image.id" class="cell-thumb">
-                        <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
+                        <button class="thumb-preview" type="button" @click="openImage(image)">
+                          <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
+                        </button>
                       </div>
                     </div>
 
@@ -119,12 +121,14 @@
         </div>
       </div>
     </section>
+    <ImageLightbox :image="previewImage" @close="previewImage = null" />
   </div>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
 import CompactHeatmap from '../components/CompactHeatmap.vue';
+import ImageLightbox from '../components/ImageLightbox.vue';
 import { useDailyLog } from '../state.js';
 import { normalizeCellRecord } from '../services/model.js';
 import { buildHeatmap, formatDate, formatDateTime, formatClock, initials, shiftDate, todayKey } from '../utils.js';
@@ -133,6 +137,7 @@ const { state, currentUser, getLearningColumns, metricsForUser } = useDailyLog()
 const today = todayKey();
 const members = computed(() => state.users.filter((item) => item.is_active));
 const selectedMemberId = ref('');
+const previewImage = ref(null);
 
 watch(
   members,
@@ -187,6 +192,16 @@ function cellTime(row, columnId) {
   const cell = row.cells[columnId];
   if (cell?.updated_at) return `最后修改 ${formatClock(cell.updated_at)}`;
   return '未修改';
+}
+
+function openImage(image) {
+  const src = image?.previewUrl || image?.dataUrl || image?.url || '';
+  if (!src) return;
+  previewImage.value = {
+    src,
+    alt: image.name || '图片',
+    name: image.name || ''
+  };
 }
 
 function actionLabel(action) {

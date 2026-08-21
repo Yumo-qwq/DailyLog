@@ -67,7 +67,9 @@
 
                     <div v-if="!row.isToday && cellImages(row, column.id).length" class="cell-thumb-grid">
                       <div v-for="image in cellImages(row, column.id)" :key="image.id" class="cell-thumb">
-                        <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
+                        <button class="thumb-preview" type="button" @click="openImage(image)">
+                          <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
+                        </button>
                       </div>
                     </div>
 
@@ -85,7 +87,9 @@
 
                     <div v-if="row.isToday && cellDraft[column.id].images.length" class="cell-thumb-grid">
                       <div v-for="image in cellDraft[column.id].images" :key="image.id" class="cell-thumb">
-                        <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
+                        <button class="thumb-preview" type="button" @click="openImage(image)">
+                          <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
+                        </button>
                         <button type="button" class="cell-thumb-remove" @click="removeDraftImage(column.id, image.id)">×</button>
                       </div>
                     </div>
@@ -127,11 +131,13 @@
         </div>
       </div>
     </section>
+    <ImageLightbox :image="previewImage" @close="previewImage = null" />
   </div>
 </template>
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
+import ImageLightbox from '../components/ImageLightbox.vue';
 import { useDailyLog } from '../state.js';
 import { compressImage, createId, formatClock, formatDate, shiftDate, todayKey } from '../utils.js';
 import { notify } from '../toast.js';
@@ -160,6 +166,7 @@ const newColumnName = ref('');
 const renamingId = ref('');
 const renameValue = ref('');
 const saveStatus = ref('等待修改');
+const previewImage = ref(null);
 
 function cloneImage(image) {
   if (!image) return null;
@@ -507,6 +514,16 @@ function cellTime(row, columnId) {
     return `最后修改 ${formatClock(row.cells[columnId].updated_at)}`;
   }
   return '未修改';
+}
+
+function openImage(image) {
+  const src = image?.previewUrl || image?.dataUrl || image?.url || '';
+  if (!src) return;
+  previewImage.value = {
+    src,
+    alt: image.name || '图片',
+    name: image.name || ''
+  };
 }
 
 async function saveToday() {

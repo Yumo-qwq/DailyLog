@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase.js';
 import { todayKey, createId } from '../utils.js';
 import { buildContentSummary, buildStateSnapshot, hasCellData, normalizeCellRecord } from './model.js';
 import { resolveSignedImageUrls, syncCheckinImages } from './checkinImages.js';
+import { resolveProfileAvatars } from './profileAvatars.js';
 
 function ensureSupabase() {
   if (!supabase) throw new Error('Supabase 未配置');
@@ -50,7 +51,10 @@ export async function loadRemoteState() {
     throw new Error('账号不存在或已被禁用');
   }
 
-  const signedUrls = await resolveSignedImageUrls(imageRows);
+  const [signedUrls, profileAvatars] = await Promise.all([
+    resolveSignedImageUrls(imageRows),
+    resolveProfileAvatars(profileRows)
+  ]);
   return buildStateSnapshot({
     profiles: profileRows,
     learningColumns: columnRows,
@@ -59,7 +63,8 @@ export async function loadRemoteState() {
     checkinImages: imageRows,
     activityLogs: logRows,
     sessionUserId,
-    signedUrlsByPath: signedUrls
+    signedUrlsByPath: signedUrls,
+    profileAvatarsByUserId: profileAvatars
   });
 }
 

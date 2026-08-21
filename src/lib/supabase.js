@@ -5,6 +5,7 @@ const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VIT
 
 export const hasSupabaseConfig = Boolean(url && key);
 export const supabaseBucketName = 'checkin-images';
+export const profileAvatarBucketName = 'profile-avatars';
 
 export const supabase = hasSupabaseConfig
   ? createClient(url, key, {

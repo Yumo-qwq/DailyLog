@@ -23,9 +23,9 @@
               <input ref="avatarInput" class="hidden-file-input" type="file" accept="image/*" @change="pickAvatar" />
               <div class="toolbar">
                 <button class="button-secondary" type="button" @click="chooseAvatar">上传头像</button>
-                <button v-if="form.avatar_url" class="button-ghost" type="button" @click="clearAvatar">移除头像</button>
+                <button v-if="hasAvatar" class="button-ghost" type="button" @click="clearAvatar">移除头像</button>
               </div>
-              <p class="muted">不需要填写地址，选图后会自动压缩。</p>
+              <p class="muted">不需要填写地址，保存时会上传到私有 Storage。</p>
             </div>
           </div>
         </div>
@@ -40,26 +40,35 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useDailyLog } from '../state.js';
 import { compressImage, initials } from '../utils.js';
+import { avatarStorageValue, deleteProfileAvatar, uploadProfileAvatar } from '../services/profileAvatars.js';
 import { notify } from '../toast.js';
 
 const { currentUser, updateProfile } = useDailyLog();
 const user = computed(() => currentUser());
 const avatarInput = ref(null);
+const pendingAvatar = ref(null);
+const avatarRemoved = ref(false);
 const form = reactive({
-  display_name: user.value?.display_name || '',
-  avatar_url: user.value?.avatar_url || ''
+  display_name: user.value?.display_name || ''
 });
 
 watch(
   user,
   (nextUser) => {
     form.display_name = nextUser?.display_name || '';
-    form.avatar_url = nextUser?.avatar_url || '';
+    pendingAvatar.value = null;
+    avatarRemoved.value = false;
   },
   { immediate: true }
 );
 
-const previewAvatar = computed(() => form.avatar_url || '');
+const previewAvatar = computed(() => {
+  if (pendingAvatar.value?.previewUrl) return pendingAvatar.value.previewUrl;
+  if (avatarRemoved.value) return '';
+  return user.value?.avatar_url || '';
+});
+
+const hasAvatar = computed(() => Boolean(pendingAvatar.value || (!avatarRemoved.value && (user.value?.avatar_storage_path || user.value?.avatar_url))));
 
 function chooseAvatar() {
   avatarInput.value?.click();
@@ -71,7 +80,14 @@ async function pickAvatar(event) {
 
   try {
     const processed = await compressImage(file, 320, 0.82, 200 * 1024);
-    form.avatar_url = processed.dataUrl || processed.previewUrl || '';
+    pendingAvatar.value = {
+      name: file.name,
+      dataUrl: processed.dataUrl || processed.previewUrl,
+      previewUrl: processed.previewUrl || processed.dataUrl,
+      content_type: processed.contentType || 'image/webp',
+      size_bytes: processed.sizeBytes || 0
+    };
+    avatarRemoved.value = false;
     notify('success', '头像已选择，保存后生效');
   } catch (error) {
     notify('error', error.message || '头像处理失败');
@@ -81,19 +97,49 @@ async function pickAvatar(event) {
 }
 
 function clearAvatar() {
-  form.avatar_url = '';
+  pendingAvatar.value = null;
+  avatarRemoved.value = true;
   if (avatarInput.value) avatarInput.value.value = '';
 }
 
 async function save() {
   if (!user.value) return;
+  let uploadedPath = '';
+  const previousPath = user.value.avatar_storage_path || '';
+
   try {
+    const payload = {
+      display_name: form.display_name
+    };
+
+    if (pendingAvatar.value) {
+      uploadedPath = await uploadProfileAvatar({
+        userId: user.value.id,
+        image: pendingAvatar.value
+      });
+      payload.avatar_url = avatarStorageValue(uploadedPath);
+    } else if (avatarRemoved.value) {
+      payload.avatar_url = '';
+    }
+
     await updateProfile(user.value.id, {
-      display_name: form.display_name,
-      avatar_url: form.avatar_url
+      ...payload
     });
+
+    if (uploadedPath && previousPath && previousPath !== uploadedPath) {
+      await deleteProfileAvatar(previousPath).catch(() => {});
+    }
+    if (avatarRemoved.value && previousPath) {
+      await deleteProfileAvatar(previousPath).catch(() => {});
+    }
+
+    pendingAvatar.value = null;
+    avatarRemoved.value = false;
     notify('success', '资料已保存');
   } catch (error) {
+    if (uploadedPath) {
+      await deleteProfileAvatar(uploadedPath).catch(() => {});
+    }
     notify('error', error.message || '资料保存失败');
   }
 }

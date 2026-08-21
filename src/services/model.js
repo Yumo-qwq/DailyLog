@@ -94,7 +94,8 @@ export function buildStateSnapshot({
   checkinImages = [],
   activityLogs = [],
   sessionUserId = null,
-  signedUrlsByPath = new Map()
+  signedUrlsByPath = new Map(),
+  profileAvatarsByUserId = new Map()
 } = {}) {
   const columnsByUser = new Map();
   for (const column of learningColumns) {
@@ -152,7 +153,15 @@ export function buildStateSnapshot({
   });
 
   return {
-    users: profiles.map((item) => ({ ...item })),
+    users: profiles.map((item) => {
+      const avatar = profileAvatarsByUserId.get(item.id) || {};
+      return {
+        ...item,
+        avatar_raw: avatar.rawAvatar || item.avatar_url || '',
+        avatar_storage_path: avatar.storagePath || '',
+        avatar_url: avatar.displayUrl || ''
+      };
+    }),
     learningColumns: sortColumns(learningColumns.map((item) => ({ ...item }))),
     checkins: nextCheckins,
     activityLogs: [...activityLogs].map(buildLogRecord).sort((a, b) => b.created_at.localeCompare(a.created_at)),
