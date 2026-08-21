@@ -155,8 +155,11 @@ export function buildStateSnapshot({
   return {
     users: profiles.map((item) => {
       const avatar = profileAvatarsByUserId.get(item.id) || {};
+      const username = item.username || '';
       return {
         ...item,
+        username,
+        display_name: item.display_name || username || '成员',
         avatar_raw: avatar.rawAvatar || item.avatar_url || '',
         avatar_storage_path: avatar.storagePath || '',
         avatar_url: avatar.displayUrl || ''

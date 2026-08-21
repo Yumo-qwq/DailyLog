@@ -1,5 +1,6 @@
 -- Read-only verification for DailyLog remote Supabase schema.
--- Run this in Supabase SQL Editor after 001_init.sql succeeds.
+-- Run this in Supabase SQL Editor after 001_init.sql, 002_profile_avatars.sql,
+-- and 003_username_auth.sql succeed.
 
 select
   'tables' as section,
@@ -108,4 +109,21 @@ select
   file_size_limit,
   allowed_mime_types
 from storage.buckets
-where id = 'checkin-images';
+where id in ('checkin-images', 'profile-avatars')
+order by id;
+
+select
+  'rpc_functions' as section,
+  routine_schema,
+  routine_name,
+  security_type
+from information_schema.routines
+where routine_schema = 'public'
+  and routine_name in (
+    'business_today',
+    'is_active_member',
+    'is_admin',
+    'member_profiles',
+    'normalize_username'
+  )
+order by routine_name;

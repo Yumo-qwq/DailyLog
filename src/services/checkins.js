@@ -37,8 +37,23 @@ export async function loadRemoteState() {
   const sessionUserId = await getSessionUserId();
   if (!sessionUserId) return emptyRemoteState();
 
-  const [profileRows, columnRows, checkinRows, entryRows, imageRows, logRows] = await Promise.all([
-    fetchTable(supabase.from('profiles').select('*').order('created_at', { ascending: true })),
+  const { data: currentProfile, error: currentProfileError } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url, role, is_active, created_at')
+    .eq('id', sessionUserId)
+    .single();
+
+  if (currentProfileError) throw currentProfileError;
+  if (!currentProfile || !currentProfile.is_active) {
+    throw new Error('账号不存在或已被禁用');
+  }
+
+  const profileQuery = currentProfile.role === 'admin'
+    ? supabase.from('profiles').select('id, username, display_name, avatar_url, role, is_active, created_at').order('created_at', { ascending: true })
+    : supabase.rpc('member_profiles');
+
+  const [visibleProfileRows, columnRows, checkinRows, entryRows, imageRows, logRows] = await Promise.all([
+    fetchTable(profileQuery),
     fetchTable(supabase.from('learning_columns').select('*').order('user_id', { ascending: true }).order('column_order', { ascending: true }).order('created_at', { ascending: true })),
     fetchTable(supabase.from('checkins').select('*').order('date', { ascending: false }).order('updated_at', { ascending: false })),
     fetchTable(supabase.from('checkin_entries').select('*').order('created_at', { ascending: true })),
@@ -46,10 +61,9 @@ export async function loadRemoteState() {
     fetchTable(supabase.from('checkin_change_logs').select('*').order('created_at', { ascending: false }))
   ]);
 
-  const currentProfile = profileRows.find((item) => item.id === sessionUserId);
-  if (!currentProfile || !currentProfile.is_active) {
-    throw new Error('账号不存在或已被禁用');
-  }
+  const profileRows = currentProfile.role === 'admin'
+    ? visibleProfileRows
+    : visibleProfileRows.map((profile) => (profile.id === sessionUserId ? { ...profile, username: currentProfile.username } : profile));
 
   const [signedUrls, profileAvatars] = await Promise.all([
     resolveSignedImageUrls(imageRows),
@@ -242,7 +256,12 @@ export async function updateProfile(userId, payload = {}) {
   if (Object.prototype.hasOwnProperty.call(payload, 'display_name')) update.display_name = String(payload.display_name || '').trim();
   if (Object.prototype.hasOwnProperty.call(payload, 'avatar_url')) update.avatar_url = String(payload.avatar_url || '').trim();
 
-  const { data, error } = await supabase.from('profiles').update(update).eq('id', userId).select('*').single();
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(update)
+    .eq('id', userId)
+    .select('id, username, display_name, avatar_url, role, is_active, created_at')
+    .single();
   if (error) throw error;
   return data;
 }

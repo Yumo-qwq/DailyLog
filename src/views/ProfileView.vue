@@ -7,6 +7,11 @@
 
       <form class="profile-form" @submit.prevent="save">
         <label class="field">
+          <span>用户名</span>
+          <input :value="username" disabled />
+        </label>
+
+        <label class="field">
           <span>昵称</span>
           <input v-model="form.display_name" />
         </label>
@@ -15,8 +20,8 @@
           <span>头像</span>
           <div class="profile-avatar-row">
             <div class="profile-avatar-preview">
-              <img v-if="previewAvatar" :src="previewAvatar" :alt="form.display_name || '头像'" />
-              <span v-else>{{ initials(form.display_name) }}</span>
+              <img v-if="previewAvatar" :src="previewAvatar" :alt="displayName || '头像'" />
+              <span v-else>{{ initials(displayName) }}</span>
             </div>
 
             <div class="profile-avatar-actions">
@@ -71,6 +76,8 @@ const previewAvatar = computed(() => {
 });
 
 const hasAvatar = computed(() => Boolean(pendingAvatar.value || (!avatarRemoved.value && (user.value?.avatar_storage_path || user.value?.avatar_url))));
+const username = computed(() => user.value?.username || '');
+const displayName = computed(() => form.display_name || user.value?.display_name || username.value);
 
 function chooseAvatar() {
   avatarInput.value?.click();
@@ -110,9 +117,11 @@ async function save() {
   const previousPath = user.value.avatar_storage_path || '';
 
   try {
-    const payload = {
-      display_name: form.display_name
-    };
+    const payload = {};
+    const nextDisplayName = String(form.display_name || '').trim();
+    if (nextDisplayName && nextDisplayName !== user.value.display_name) {
+      payload.display_name = nextDisplayName;
+    }
 
     if (pendingAvatar.value) {
       uploadedPath = await uploadProfileAvatar({
@@ -122,6 +131,11 @@ async function save() {
       payload.avatar_url = avatarStorageValue(uploadedPath);
     } else if (avatarRemoved.value) {
       payload.avatar_url = '';
+    }
+
+    if (!Object.keys(payload).length) {
+      notify('info', '没有需要保存的修改');
+      return;
     }
 
     await updateProfile(user.value.id, {

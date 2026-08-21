@@ -73,8 +73,35 @@ function Select-Table {
 }
 
 function Sign-In {
-  param([string]$Email, [string]$Password)
+  param([string]$Username, [string]$Email, [string]$Password)
+  if ($Username) {
+    return Invoke-Supabase -Method "POST" -Path "/functions/v1/username-login" -Body @{ username = $Username; password = $Password } -ExtraHeaders @{ "Content-Type" = "application/json" }
+  }
   return Invoke-Supabase -Method "POST" -Path "/auth/v1/token?grant_type=password" -Body @{ email = $Email; password = $Password } -ExtraHeaders @{ "Content-Type" = "application/json" }
+}
+
+function Get-Auth-User {
+  param([string]$Token)
+  return Invoke-Supabase -Path "/auth/v1/user" -Token $Token
+}
+
+function Auth-User-Id {
+  param([object]$Auth)
+  if ($Auth.payload -and ($Auth.payload.PSObject.Properties.Name -contains "user") -and $Auth.payload.user -and ($Auth.payload.user.PSObject.Properties.Name -contains "id")) {
+    return $Auth.payload.user.id
+  }
+
+  if ($Auth.payload -and ($Auth.payload.PSObject.Properties.Name -contains "access_token")) {
+    $user = Get-Auth-User -Token $Auth.payload.access_token
+    if ($user.ok -and $user.payload -and ($user.payload.PSObject.Properties.Name -contains "id")) {
+      return $user.payload.id
+    }
+    if ($user.ok -and $user.payload -and ($user.payload.PSObject.Properties.Name -contains "user") -and $user.payload.user) {
+      return $user.payload.user.id
+    }
+  }
+
+  return ""
 }
 
 function Insert-Row {
@@ -162,7 +189,7 @@ function First-Payload($Payload) {
 $result = [ordered]@{}
 
 $result.tables = [ordered]@{
-  profiles = Select-Table -Table "profiles" -Select "id,display_name,avatar_url,role,is_active,created_at"
+  profiles = Select-Table -Table "profiles" -Select "id,username,display_name,avatar_url,role,is_active,created_at"
   checkins = Select-Table -Table "checkins" -Select "id,user_id,date,content,study_minutes,created_at,updated_at"
   learning_columns = Select-Table -Table "learning_columns" -Select "id,user_id,name,column_order,created_at"
   checkin_entries = Select-Table -Table "checkin_entries" -Select "id,checkin_id,column_id,content,created_at,updated_at"
@@ -180,22 +207,25 @@ $result.anonWrite = Insert-Row -Table "checkins" -Token $Key -Body @{
 
 $result.bucketAnonProbe = Invoke-Supabase -Path "/storage/v1/bucket/checkin-images"
 
+$usernameA = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_USERNAME", "Process")
 $emailA = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_EMAIL", "Process")
 $passwordA = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_PASSWORD", "Process")
+$usernameB = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_USERNAME_2", "Process")
 $emailB = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_EMAIL_2", "Process")
 $passwordB = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_PASSWORD_2", "Process")
 
-if ($emailA -and $passwordA) {
-  $authA = Sign-In -Email $emailA -Password $passwordA
+if (($usernameA -or $emailA) -and $passwordA) {
+  $authA = Sign-In -Username $usernameA -Email $emailA -Password $passwordA
   $result.authA = [ordered]@{ login = $authA }
 
   if ($authA.ok) {
     $tokenA = $authA.payload.access_token
-    $userA = $authA.payload.user.id
+    $userA = Auth-User-Id -Auth $authA
     $todayCheckinA = Ensure-Today-Checkin -Token $tokenA -UserId $userA -Label "A"
     $result.memberA = [ordered]@{
       userId = $userA
-      readProfiles = Invoke-Supabase -Path "/rest/v1/profiles?select=id,display_name,role,is_active" -Token $tokenA
+      readProfiles = Invoke-Supabase -Path "/rest/v1/profiles?select=id,username,display_name,role,is_active" -Token $tokenA
+      memberProfilesRpc = Invoke-Supabase -Method "POST" -Path "/rest/v1/rpc/member_profiles" -Token $tokenA -Body @{} -ExtraHeaders @{ "Content-Type" = "application/json" }
       ownTodayCheckin = $todayCheckinA
       pastInsert = Insert-Row -Table "checkins" -Token $tokenA -Body @{ user_id = $userA; date = Today-Key -Offset -1; content = "past should fail"; study_minutes = 1 }
       futureInsert = Insert-Row -Table "checkins" -Token $tokenA -Body @{ user_id = $userA; date = Today-Key -Offset 1; content = "future should fail"; study_minutes = 1 }
@@ -289,12 +319,12 @@ if ($emailA -and $passwordA) {
       }
     }
 
-    if ($emailB -and $passwordB) {
-      $authB = Sign-In -Email $emailB -Password $passwordB
+    if (($usernameB -or $emailB) -and $passwordB) {
+      $authB = Sign-In -Username $usernameB -Email $emailB -Password $passwordB
       $result.authB = [ordered]@{ login = $authB }
       if ($authB.ok) {
         $tokenB = $authB.payload.access_token
-        $userB = $authB.payload.user.id
+        $userB = Auth-User-Id -Auth $authB
         $todayCheckinB = Ensure-Today-Checkin -Token $tokenB -UserId $userB -Label "B"
         $result.memberB = [ordered]@{
           userId = $userB
@@ -383,7 +413,7 @@ if ($emailA -and $passwordA) {
 } else {
   $result.memberChecks = [ordered]@{
     skipped = $true
-    reason = "Set DAILYLOG_TEST_EMAIL and DAILYLOG_TEST_PASSWORD. Set DAILYLOG_TEST_EMAIL_2 and DAILYLOG_TEST_PASSWORD_2 for cross-user checks."
+    reason = "Set DAILYLOG_TEST_USERNAME and DAILYLOG_TEST_PASSWORD. Set DAILYLOG_TEST_USERNAME_2 and DAILYLOG_TEST_PASSWORD_2 for cross-user checks. DAILYLOG_TEST_EMAIL is still accepted for legacy checks."
   }
 }
 

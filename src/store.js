@@ -229,9 +229,9 @@ function seedState() {
   const users = [
     {
       id: 'u-admin',
-      email: 'admin@dailylog.local',
+      username: 'admin',
       password: '123456',
-      display_name: '管理员',
+      display_name: 'admin',
       avatar_url: '',
       role: 'admin',
       is_active: true,
@@ -239,9 +239,9 @@ function seedState() {
     },
     {
       id: 'u-alice',
-      email: 'alice@dailylog.local',
+      username: 'alice',
       password: '123456',
-      display_name: 'Alice',
+      display_name: 'alice',
       avatar_url: '',
       role: 'member',
       is_active: true,
@@ -249,9 +249,9 @@ function seedState() {
     },
     {
       id: 'u-bob',
-      email: 'bob@dailylog.local',
+      username: 'bob',
       password: '123456',
-      display_name: 'Bob',
+      display_name: 'bob',
       avatar_url: '',
       role: 'member',
       is_active: true,
@@ -259,9 +259,9 @@ function seedState() {
     },
     {
       id: 'u-charlie',
-      email: 'charlie@dailylog.local',
+      username: 'charlie',
       password: '123456',
-      display_name: 'Charlie',
+      display_name: 'charlie',
       avatar_url: '',
       role: 'member',
       is_active: true,
@@ -542,8 +542,9 @@ export function recentCheckins(state, limit = 8) {
     .slice(0, limit);
 }
 
-export function login(state, email, password) {
-  const user = state.users.find((item) => item.email.toLowerCase() === String(email).toLowerCase() && item.password === password);
+export function login(state, username, password) {
+  const normalized = String(username || '').trim().toLowerCase();
+  const user = state.users.find((item) => item.username?.toLowerCase() === normalized && item.password === password);
   if (!user) {
     throw new Error('账号或密码不正确');
   }
@@ -591,27 +592,24 @@ export function updateProfile(state, userId, payload) {
 }
 
 export function createUser(state, payload) {
-  const email = String(payload.email || '').trim().toLowerCase();
-  if (!email) throw new Error('请填写邮箱');
-  if (state.users.some((item) => item.email.toLowerCase() === email)) {
-    throw new Error('邮箱已存在');
+  const username = String(payload.username || '').trim().toLowerCase();
+  if (!username) throw new Error('请填写用户名');
+  if (state.users.some((item) => item.username?.toLowerCase() === username)) {
+    throw new Error('用户名已存在');
   }
 
   const timestamp = nowIso();
+  const displayName = String(payload.display_name || '').trim() || username;
   const user = {
     id: createId(),
-    email,
+    username,
     password: payload.password || '123456',
-    display_name: String(payload.display_name || '').trim(),
+    display_name: displayName,
     avatar_url: payload.avatar_url || '',
     role: payload.role === 'admin' ? 'admin' : 'member',
     is_active: true,
     created_at: timestamp
   };
-
-  if (!user.display_name) {
-    user.display_name = email.split('@')[0];
-  }
 
   state.users.push(user);
   state.learningColumns = state.learningColumns || [];

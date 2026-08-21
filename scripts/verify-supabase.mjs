@@ -13,6 +13,7 @@ if (existsSync(envPath)) {
 
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const username = process.env.DAILYLOG_TEST_USERNAME || '';
 const email = process.env.DAILYLOG_TEST_EMAIL || '';
 const password = process.env.DAILYLOG_TEST_PASSWORD || '';
 
@@ -57,13 +58,33 @@ async function probeTable(name, select) {
   return await request(`/rest/v1/${name}?select=${encodeURIComponent(select)}&limit=1`);
 }
 
-async function signIn() {
+async function signInWithUsername() {
+  if (!username || !password) return null;
+  return await request('/functions/v1/username-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+}
+
+async function signInWithEmail() {
   if (!email || !password) return null;
   return await request('/auth/v1/token?grant_type=password', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
+}
+
+async function signIn() {
+  return (await signInWithUsername()) || (await signInWithEmail());
+}
+
+async function getAuthUser(accessToken) {
+  const result = await request('/auth/v1/user', {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  return result.ok ? result.payload : null;
 }
 
 async function signOut(accessToken) {
@@ -76,7 +97,7 @@ async function signOut(accessToken) {
 }
 
 const tableChecks = {
-  profiles: await probeTable('profiles', 'id,display_name,avatar_url,role,is_active,created_at'),
+  profiles: await probeTable('profiles', 'id,username,display_name,avatar_url,role,is_active,created_at'),
   checkins: await probeTable('checkins', 'id,user_id,date,content,study_minutes,created_at,updated_at'),
   learning_columns: await probeTable('learning_columns', 'id,user_id,name,column_order,created_at'),
   checkin_entries: await probeTable('checkin_entries', 'id,checkin_id,column_id,content,created_at,updated_at'),
@@ -103,14 +124,25 @@ let memberChecks = null;
 
 if (auth?.ok && auth.payload?.access_token) {
   const token = auth.payload.access_token;
+  const authUser = await getAuthUser(token);
+  const authUserId = authUser?.id || authUser?.user?.id || '';
   const tokenHeaders = {
     apikey: key,
     Authorization: `Bearer ${token}`,
     Accept: 'application/json'
   };
 
-  const profileRead = await fetch(`${url}/rest/v1/profiles?select=id,display_name,role,is_active`, {
+  const profileRead = await fetch(`${url}/rest/v1/profiles?select=id,username,display_name,role,is_active`, {
     headers: tokenHeaders
+  }).then(async (response) => ({ status: response.status, ok: response.ok, payload: await response.json().catch(async () => await response.text()) }));
+
+  const memberProfilesRpc = await fetch(`${url}/rest/v1/rpc/member_profiles`, {
+    method: 'POST',
+    headers: {
+      ...tokenHeaders,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({})
   }).then(async (response) => ({ status: response.status, ok: response.ok, payload: await response.json().catch(async () => await response.text()) }));
 
   const ownTodayInsert = await fetch(`${url}/rest/v1/checkins`, {
@@ -121,7 +153,7 @@ if (auth?.ok && auth.payload?.access_token) {
       Prefer: 'return=minimal'
     },
     body: JSON.stringify({
-      user_id: auth.payload.user?.id || '',
+      user_id: authUserId,
       date: todayKey(),
       content: 'RLS probe',
       study_minutes: 1
@@ -136,7 +168,7 @@ if (auth?.ok && auth.payload?.access_token) {
       Prefer: 'return=minimal'
     },
     body: JSON.stringify({
-      user_id: auth.payload.user?.id || '',
+      user_id: authUserId,
       date: todayKey(-1),
       content: 'past should fail',
       study_minutes: 1
@@ -151,22 +183,25 @@ if (auth?.ok && auth.payload?.access_token) {
       Prefer: 'return=minimal'
     },
     body: JSON.stringify({
-      user_id: auth.payload.user?.id || '',
+      user_id: authUserId,
       date: todayKey(1),
       content: 'future should fail',
       study_minutes: 1
     })
   }).then(async (response) => ({ status: response.status, ok: response.ok, payload: await response.text() }));
 
-  const deleteProbe = await fetch(`${url}/rest/v1/checkins?user_id=eq.${encodeURIComponent(auth.payload.user?.id || '')}&date=eq.${encodeURIComponent(todayKey())}`, {
+  const deleteProbe = await fetch(`${url}/rest/v1/checkins?user_id=eq.${encodeURIComponent(authUserId)}&date=eq.${encodeURIComponent(todayKey())}`, {
     method: 'DELETE',
     headers: tokenHeaders
   }).then(async (response) => ({ status: response.status, ok: response.ok, payload: await response.text() }));
 
   memberChecks = {
     loginOk: true,
-    userId: auth.payload.user?.id || '',
+    loginMode: username ? 'username' : 'email',
+    userId: authUserId,
     canReadProfiles: profileRead.ok,
+    profileRead,
+    memberProfilesRpc,
     ownTodayInsert,
     pastInsert,
     futureInsert,
@@ -177,7 +212,7 @@ if (auth?.ok && auth.payload?.access_token) {
 } else {
   memberChecks = {
     skipped: true,
-    reason: 'Set DAILYLOG_TEST_EMAIL and DAILYLOG_TEST_PASSWORD to test logged-in permissions.'
+    reason: 'Set DAILYLOG_TEST_USERNAME and DAILYLOG_TEST_PASSWORD to test logged-in permissions. DAILYLOG_TEST_EMAIL is still accepted for legacy checks.'
   };
 }
 

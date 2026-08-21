@@ -1,8 +1,9 @@
 import { computed, reactive, ref } from 'vue';
 import { clearDraft as clearDraftStorage, loadDraft, saveDraft as saveDraftStorage, getLearningColumns, getCurrentUser, getProfile, globalStats, isAdmin, metricsForUser, recentCheckins, findTodayCheckin } from './store.js';
 import { hasSupabaseConfig } from './lib/supabase.js';
-import { getSession, onAuthStateChange, signInWithPassword, signOut } from './services/auth.js';
+import { getSession, onAuthStateChange, signInWithUsername, signOut } from './services/auth.js';
 import { createLearningColumn as remoteCreateLearningColumn, loadRemoteState, renameLearningColumn as remoteRenameLearningColumn, saveTodayCheckin, updateProfile as remoteUpdateProfile } from './services/checkins.js';
+import { createUser as remoteCreateUser, setUserActive as remoteSetUserActive } from './services/users.js';
 import { todayKey } from './utils.js';
 
 const emptySnapshot = () => ({
@@ -130,8 +131,8 @@ export function useDailyLog() {
     metricsForUser: (userId) => metricsForUser(state, userId),
     findTodayCheckin: (userId, date) => findTodayCheckin(state, userId, date),
     getLearningColumns: (userId) => getLearningColumns(state, userId),
-    login: async (email, password) => {
-      await signInWithPassword(email, password);
+    login: async (username, password) => {
+      await signInWithUsername(username, password);
       await refreshFromRemote();
       return getCurrentUser(state);
     },
@@ -146,11 +147,15 @@ export function useDailyLog() {
       await refreshFromRemote();
       return result;
     },
-    createUser: async () => {
-      throw new Error('请在 Supabase Dashboard 创建内部账号');
+    createUser: async (payload) => {
+      const result = await remoteCreateUser(payload);
+      await refreshFromRemote();
+      return result;
     },
-    setUserActive: async () => {
-      throw new Error('请在 Supabase Dashboard 管理账号状态');
+    setUserActive: async (userId, isActive) => {
+      const result = await remoteSetUserActive(userId, isActive);
+      await refreshFromRemote();
+      return result;
     },
     createOrUpdateTodayCheckin: async (userId, payload) => {
       requireUser(userId);

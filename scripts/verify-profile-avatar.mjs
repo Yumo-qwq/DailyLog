@@ -13,6 +13,7 @@ if (existsSync(envPath)) {
 
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const username = process.env.DAILYLOG_TEST_USERNAME || '';
 const email = process.env.DAILYLOG_TEST_EMAIL || '';
 const password = process.env.DAILYLOG_TEST_PASSWORD || '';
 
@@ -44,11 +45,26 @@ async function request(path, { method = 'GET', headers = {}, body } = {}) {
 }
 
 async function signIn() {
+  if (username && password) {
+    return await request('/functions/v1/username-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+  }
+
   return await request('/auth/v1/token?grant_type=password', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
+}
+
+async function getAuthUser(accessToken) {
+  const result = await request('/auth/v1/user', {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  return result.ok ? result.payload : null;
 }
 
 function tempPngBlob() {
@@ -63,7 +79,8 @@ if (!auth.ok || !auth.payload?.access_token) {
 }
 
 const token = auth.payload.access_token;
-const userId = auth.payload.user?.id || '';
+const authUser = auth.payload.user || (await getAuthUser(token));
+const userId = authUser?.id || authUser?.user?.id || '';
 const authHeaders = {
   Authorization: `Bearer ${token}`,
   'Content-Type': 'application/json'
