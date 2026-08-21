@@ -1,0 +1,7 @@
+.env
+.env.local
+.env.*.local
+dist
+node_modules
+Thumbs.db
+*.log
