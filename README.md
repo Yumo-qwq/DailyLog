@@ -65,3 +65,9 @@ supabase/verify_remote.sql
 - 每个格子都支持单独写字、上传图片；文字停顿后自动记录，图片增删会立刻进入修改日志。
 - 热力图已经缩小成辅助块。
 - `supabase/migrations/001_init.sql` 保留了数据库、RLS、动态学习列、单元格内容、图片元数据表和 Storage policy 的起始方案。
+
+
+
+
+
+  a
