@@ -10,10 +10,21 @@ as $$
   select (timezone('Asia/Shanghai', now()))::date;
 $$;
 
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text not null,
+  avatar_url text,
+  role text not null default 'member' check (role in ('admin', 'member')),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
 create or replace function public.is_active_member()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select exists (
     select 1
@@ -27,6 +38,8 @@ create or replace function public.is_admin()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select exists (
     select 1
@@ -37,15 +50,6 @@ as $$
   );
 $$;
 
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  display_name text not null,
-  avatar_url text,
-  role text not null default 'member' check (role in ('admin', 'member')),
-  is_active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
 create table if not exists public.checkins (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -55,13 +59,6 @@ create table if not exists public.checkins (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, date)
-);
-
-create table if not exists public.checkin_images (
-  id uuid primary key default gen_random_uuid(),
-  checkin_id uuid not null references public.checkins(id) on delete cascade,
-  storage_path text not null unique,
-  created_at timestamptz not null default now()
 );
 
 create table if not exists public.learning_columns (
@@ -78,10 +75,20 @@ create table if not exists public.checkin_entries (
   checkin_id uuid not null references public.checkins(id) on delete cascade,
   column_id uuid not null references public.learning_columns(id) on delete restrict,
   content text not null default '',
-  images jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (checkin_id, column_id)
+);
+
+create table if not exists public.checkin_images (
+  id uuid primary key default gen_random_uuid(),
+  checkin_id uuid not null references public.checkins(id) on delete cascade,
+  column_id uuid not null references public.learning_columns(id) on delete restrict,
+  storage_path text not null unique,
+  file_name text not null default '',
+  content_type text not null default 'image/webp',
+  size_bytes integer not null default 0 check (size_bytes >= 0 and size_bytes <= 1048576),
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.checkin_change_logs (
@@ -326,6 +333,7 @@ with check (
 );
 
 drop policy if exists "checkin_entries_delete_today_only" on public.checkin_entries;
+drop policy if exists "checkin_entries_delete_none" on public.checkin_entries;
 create policy "checkin_entries_delete_none"
 on public.checkin_entries
 for delete
@@ -381,11 +389,15 @@ on public.checkin_images
 for insert
 with check (
   public.is_active_member()
+  and split_part(storage_path, '/', 1) = auth.uid()::text
+  and split_part(storage_path, '/', 2) = checkin_id::text
   and exists (
     select 1
     from public.checkins c
+    join public.learning_columns lc on lc.id = column_id
     where c.id = checkin_id
       and c.user_id = auth.uid()
+      and lc.user_id = auth.uid()
       and c.date = public.business_today()
   )
 );
@@ -396,21 +408,29 @@ on public.checkin_images
 for update
 using (
   public.is_active_member()
+  and split_part(storage_path, '/', 1) = auth.uid()::text
+  and split_part(storage_path, '/', 2) = checkin_id::text
   and exists (
     select 1
     from public.checkins c
+    join public.learning_columns lc on lc.id = column_id
     where c.id = checkin_id
       and c.user_id = auth.uid()
+      and lc.user_id = auth.uid()
       and c.date = public.business_today()
   )
 )
 with check (
   public.is_active_member()
+  and split_part(storage_path, '/', 1) = auth.uid()::text
+  and split_part(storage_path, '/', 2) = checkin_id::text
   and exists (
     select 1
     from public.checkins c
+    join public.learning_columns lc on lc.id = column_id
     where c.id = checkin_id
       and c.user_id = auth.uid()
+      and lc.user_id = auth.uid()
       and c.date = public.business_today()
   )
 );
@@ -421,18 +441,25 @@ on public.checkin_images
 for delete
 using (
   public.is_active_member()
+  and split_part(storage_path, '/', 1) = auth.uid()::text
+  and split_part(storage_path, '/', 2) = checkin_id::text
   and exists (
     select 1
     from public.checkins c
+    join public.learning_columns lc on lc.id = column_id
     where c.id = checkin_id
       and c.user_id = auth.uid()
+      and lc.user_id = auth.uid()
       and c.date = public.business_today()
   )
 );
 
-insert into storage.buckets (id, name, public)
-values ('checkin-images', 'checkin-images', false)
-on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('checkin-images', 'checkin-images', false, 1048576, array['image/webp', 'image/jpeg', 'image/png'])
+on conflict (id) do update
+  set public = false,
+      file_size_limit = 1048576,
+      allowed_mime_types = array['image/webp', 'image/jpeg', 'image/png'];
 
 drop policy if exists "storage_read" on storage.objects;
 create policy "storage_read"

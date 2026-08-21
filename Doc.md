@@ -1847,3 +1847,309 @@ Cloudflare 负责网站部署、HTTPS 和 CDN。
 
 ```
 ```
+
+## 图片上传与存储架构
+
+DailyLog 的图片必须使用 **Supabase Storage** 存储，不允许将图片二进制数据直接存入 PostgreSQL。
+
+### 1. 存储职责
+
+采用以下结构：
+
+```text
+Supabase
+├── PostgreSQL Database
+│   ├── profiles
+│   ├── checkins
+│   └── checkin_images
+│
+└── Storage
+    └── checkin-images
+        └── <user_id>
+            └── <checkin_id>
+                ├── image-1.webp
+                ├── image-2.webp
+                └── ...
+```
+
+PostgreSQL 只保存图片的**元数据和 Storage 路径**，例如：
+
+```text
+checkin_images
+--------------------------------
+id
+checkin_id
+storage_path
+created_at
+```
+
+不要在 PostgreSQL 中使用 `bytea` 或其他方式直接保存图片二进制数据。
+
+---
+
+### 2. 图片上传流程
+
+用户在今日打卡页面选择图片后：
+
+```text
+用户选择原图
+    ↓
+前端读取图片
+    ↓
+前端进行压缩 / 尺寸限制
+    ↓
+转换为 WebP
+    ↓
+上传 Supabase Storage
+    ↓
+获得 storage_path
+    ↓
+将 storage_path 写入 checkin_images
+```
+
+例如：
+
+```text
+原始手机照片
+4 MB
+    ↓
+浏览器压缩
+    ↓
+WebP
+500 KB
+    ↓
+Supabase Storage
+```
+
+第一版建议：
+
+- 最大尺寸：1600px
+- 推荐格式：WebP
+- 单张图片目标大小：≤ 1MB
+- 单次打卡最多 5 张图片
+
+这些限制应该同时在前端进行 UX 层面的检查。
+
+如果 Supabase Storage 可以进一步设置安全的文件大小 / MIME type 限制，也应该配置。
+
+---
+
+### 3. Storage 路径
+
+统一使用：
+
+```text
+<user_id>/<checkin_id>/<filename>
+```
+
+例如：
+
+```text
+user-uuid-123/
+    checkin-uuid-456/
+        image-1.webp
+        image-2.webp
+```
+
+不要使用用户昵称作为目录名，因为昵称可能发生变化。
+
+---
+
+### 4. 图片权限
+
+图片必须与 Checkin 的权限保持一致。
+
+核心规则：
+
+```text
+登录用户：
+    可以查看内部成员的打卡图片
+
+图片所属用户：
+    只有在当天可以增加 / 删除 / 修改自己的图片
+
+历史 Checkin：
+    图片永久只读
+```
+
+也就是说：
+
+```text
+今天
+├── 可以上传图片
+├── 可以删除今天上传的图片
+└── 可以重新上传图片
+
+跨日
+├── 不能上传图片
+├── 不能删除图片
+└── 不能替换图片
+```
+
+不要出现以下情况：
+
+```text
+文字已经锁定
+但是图片仍然可以修改
+```
+
+一个 Checkin 锁定后，其关联图片也必须同时进入只读状态。
+
+---
+
+### 5. Storage RLS / Policy
+
+Supabase Storage 的权限必须与 PostgreSQL 中 `checkins` 的权限模型保持一致。
+
+不能仅仅依赖 Vue：
+
+```ts
+if (isToday) {
+    showUploadButton()
+}
+```
+
+来保证安全。
+
+因为用户可以绕过前端直接调用 Supabase API。
+
+必须确保：
+
+```text
+用户 A
+    ↓
+只能向自己的今日 Checkin 上传图片
+
+用户 A
+    ↓
+不能删除用户 B 的图片
+
+用户 A
+    ↓
+不能删除自己昨天 Checkin 的图片
+```
+
+Storage Policy 和 PostgreSQL RLS 必须共同保证这些规则。
+
+---
+
+### 6. 图片 URL
+
+不要永久把公开 URL 当成数据库数据保存。
+
+数据库只保存：
+
+```text
+storage_path
+```
+
+例如：
+
+```text
+user-uuid-123/checkin-uuid-456/image-1.webp
+```
+
+前端需要显示图片时，根据 Storage path 获取对应 URL。
+
+如果 Bucket 设置为 private，则使用 Supabase Storage 的 authenticated access / signed URL 机制。
+
+优先考虑使用 **private bucket**，而不是把所有用户图片直接公开到互联网。
+
+---
+
+### 7. 图片删除
+
+图片删除必须同时考虑：
+
+```text
+Storage 文件
++
+checkin_images 数据库记录
+```
+
+例如删除今日图片：
+
+```text
+用户点击删除
+    ↓
+验证当前用户是否拥有该 Checkin
+    ↓
+验证 Checkin 是否仍然属于今天
+    ↓
+删除 Storage 文件
+    ↓
+删除 checkin_images 对应记录
+```
+
+历史 Checkin 不允许执行这个操作。
+
+---
+
+### 8. Checkin 与图片的一致性
+
+需要考虑上传过程中的失败情况。
+
+例如：
+
+```text
+Checkin 创建成功
+    ↓
+图片上传失败
+```
+
+不能让用户误以为整个 Checkin 都没有保存。
+
+UI 应明确告诉用户：
+
+```text
+打卡已保存，但图片上传失败
+```
+
+并提供重新上传能力。
+
+同样，如果图片已经上传成功，但写入 `checkin_images` 失败，需要考虑清理 Storage 中的孤立文件。
+
+---
+
+### 9. 重要原则
+
+图片不是数据库中的核心业务数据。
+
+应该理解为：
+
+```text
+PostgreSQL
+    ↓
+记录：
+“这次打卡有哪几张图片，以及图片在哪里”
+
+Storage
+    ↓
+实际保存：
+“图片文件本身”
+```
+
+最终结构：
+
+```text
+                  DailyLog
+                     │
+              ┌──────┴──────┐
+              │             │
+          PostgreSQL      Storage
+              │             │
+          Checkin      image-1.webp
+              │         image-2.webp
+              │
+       checkin_images
+              │
+       storage_path
+              │
+              └──────────────→ Storage
+```
+
+请严格按照这个架构实现，不要将图片直接存储到 PostgreSQL。
+
+### Agent 实现顺序补充
+
+请先实现数据库 Schema + RLS + Storage Policy，再实现 Vue 图片上传 UI；不要先写前端功能再补权限。
