@@ -30,7 +30,10 @@
           <p>今天是 {{ todayLabel }}，所有历史记录跨日后只读。</p>
         </div>
         <div v-if="user" class="user-chip">
-          <div class="avatar">{{ initials(user.display_name) }}</div>
+          <div v-if="user.avatar_url" class="avatar image-avatar">
+            <img :src="user.avatar_url" :alt="user.display_name" />
+          </div>
+          <div v-else class="avatar">{{ initials(user.display_name) }}</div>
           <div>
             <div style="font-weight:700">{{ user.display_name }}</div>
             <div class="muted">{{ user.role }}</div>
@@ -57,9 +60,9 @@ const user = computed(() => currentUser());
 const title = computed(() => route.meta.title || '学习监督');
 const todayLabel = computed(() => formatDate(todayKey()));
 
-function handleLogout() {
+async function handleLogout() {
   clearDraft();
-  logout();
+  await logout();
   router.push('/login');
 }
 </script>

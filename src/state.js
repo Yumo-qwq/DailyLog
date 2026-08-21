@@ -1,46 +1,127 @@
-import { reactive, ref } from 'vue';
-import {
-  clearDraft as clearDraftStorage,
-  createOrUpdateTodayCheckin,
-  createLearningColumn,
-  createUser,
-  findTodayCheckin,
-  getLearningColumns,
-  getCurrentUser,
-  getProfile,
-  globalStats,
-  isAdmin,
-  loadDraft,
-  loadState,
-  login,
-  logout,
-  metricsForUser,
-  recentCheckins,
-  renameLearningColumn,
-  saveDraft as saveDraftStorage,
-  setUserActive,
-  updateProfile
-} from './store.js';
+import { computed, reactive, ref } from 'vue';
+import { clearDraft as clearDraftStorage, loadDraft, saveDraft as saveDraftStorage, getLearningColumns, getCurrentUser, getProfile, globalStats, isAdmin, metricsForUser, recentCheckins, findTodayCheckin } from './store.js';
+import { hasSupabaseConfig } from './lib/supabase.js';
+import { getSession, onAuthStateChange, signInWithPassword, signOut } from './services/auth.js';
+import { createLearningColumn as remoteCreateLearningColumn, loadRemoteState, renameLearningColumn as remoteRenameLearningColumn, saveTodayCheckin, updateProfile as remoteUpdateProfile } from './services/checkins.js';
+import { todayKey } from './utils.js';
 
-const state = reactive(loadState());
+const emptySnapshot = () => ({
+  users: [],
+  learningColumns: [],
+  checkins: [],
+  activityLogs: [],
+  sessionUserId: null
+});
+
+const state = reactive({
+  ...emptySnapshot(),
+  ready: false,
+  loading: false,
+  error: ''
+});
+
 const draft = ref(loadDraft());
+let bootPromise = null;
 
-function refresh() {
-  Object.assign(state, loadState());
-  draft.value = loadDraft();
+function applySnapshot(snapshot) {
+  const next = snapshot || emptySnapshot();
+  state.users = next.users || [];
+  state.learningColumns = next.learningColumns || [];
+  state.checkins = next.checkins || [];
+  state.activityLogs = next.activityLogs || [];
+  state.sessionUserId = next.sessionUserId || null;
 }
 
-function commit(action) {
-  const result = action();
-  refresh();
-  return result;
+async function refreshFromRemote() {
+  if (!hasSupabaseConfig) {
+    applySnapshot(emptySnapshot());
+    state.ready = true;
+    return state;
+  }
+
+  state.loading = true;
+  state.error = '';
+  try {
+    const snapshot = await loadRemoteState();
+    applySnapshot(snapshot);
+    state.ready = true;
+    return state;
+  } catch (error) {
+    state.error = error.message || '加载失败';
+    throw error;
+  } finally {
+    state.loading = false;
+  }
+}
+
+async function initialize() {
+  if (bootPromise) return bootPromise;
+
+  bootPromise = (async () => {
+    if (!hasSupabaseConfig) {
+      applySnapshot(emptySnapshot());
+      state.ready = true;
+      return state;
+    }
+
+    const session = await getSession();
+    state.sessionUserId = session?.user?.id || null;
+    if (session?.user) {
+      try {
+        await refreshFromRemote();
+      } catch (error) {
+        state.error = error.message || '加载失败';
+        applySnapshot(emptySnapshot());
+        state.ready = true;
+      }
+    } else {
+      applySnapshot(emptySnapshot());
+      state.ready = true;
+    }
+
+    onAuthStateChange(async (_event, nextSession) => {
+      state.sessionUserId = nextSession?.user?.id || null;
+      if (nextSession?.user) {
+        try {
+          await refreshFromRemote();
+        } catch (error) {
+          state.error = error.message || '加载失败';
+          applySnapshot(emptySnapshot());
+          state.ready = true;
+        }
+      } else {
+        applySnapshot(emptySnapshot());
+        state.ready = true;
+      }
+    });
+
+    return state;
+  })();
+
+  return bootPromise;
+}
+
+void initialize();
+
+function requireUser(userId) {
+  const user = getProfile(state, userId);
+  if (!user) throw new Error('用户不存在');
+  return user;
+}
+
+export async function whenReady() {
+  await initialize();
+  return state.ready;
 }
 
 export function useDailyLog() {
   return {
     state,
     draft,
-    refresh,
+    ready: computed(() => state.ready),
+    loading: computed(() => state.loading),
+    error: computed(() => state.error),
+    refresh: async () => await refreshFromRemote(),
     currentUser: () => getCurrentUser(state),
     getProfile: (id) => getProfile(state, id),
     isAdmin: (user) => isAdmin(user),
@@ -49,14 +130,56 @@ export function useDailyLog() {
     metricsForUser: (userId) => metricsForUser(state, userId),
     findTodayCheckin: (userId, date) => findTodayCheckin(state, userId, date),
     getLearningColumns: (userId) => getLearningColumns(state, userId),
-    login: (email, password) => commit(() => login(state, email, password)),
-    logout: () => commit(() => logout(state)),
-    updateProfile: (userId, payload) => commit(() => updateProfile(state, userId, payload)),
-    createUser: (payload) => commit(() => createUser(state, payload)),
-    setUserActive: (userId, active) => commit(() => setUserActive(state, userId, active)),
-    createOrUpdateTodayCheckin: (userId, payload) => commit(() => createOrUpdateTodayCheckin(state, userId, payload)),
-    createLearningColumn: (userId, name) => commit(() => createLearningColumn(state, userId, name)),
-    renameLearningColumn: (userId, columnId, name) => commit(() => renameLearningColumn(state, userId, columnId, name)),
+    login: async (email, password) => {
+      await signInWithPassword(email, password);
+      await refreshFromRemote();
+      return getCurrentUser(state);
+    },
+    logout: async () => {
+      await signOut();
+      applySnapshot(emptySnapshot());
+      state.ready = true;
+    },
+    updateProfile: async (userId, payload) => {
+      requireUser(userId);
+      const result = await remoteUpdateProfile(userId, payload);
+      await refreshFromRemote();
+      return result;
+    },
+    createUser: async () => {
+      throw new Error('请在 Supabase Dashboard 创建内部账号');
+    },
+    setUserActive: async () => {
+      throw new Error('请在 Supabase Dashboard 管理账号状态');
+    },
+    createOrUpdateTodayCheckin: async (userId, payload) => {
+      requireUser(userId);
+      const columns = payload.columns || getLearningColumns(state, userId);
+      const result = await saveTodayCheckin({
+        userId,
+        columns,
+        entries: payload.entries || {},
+        logs: payload.logs || [],
+        studyMinutes: payload.study_minutes
+      });
+      await refreshFromRemote();
+      return result;
+    },
+    createLearningColumn: async (userId, name) => {
+      requireUser(userId);
+      const columns = getLearningColumns(state, userId);
+      const nextOrder = columns.length ? Math.max(...columns.map((item) => item.column_order ?? item.order ?? 0)) + 1 : 1;
+      const column = await remoteCreateLearningColumn(userId, name, nextOrder);
+      await refreshFromRemote();
+      return column;
+    },
+    renameLearningColumn: async (_userId, columnId, name) => {
+      const column = (state.learningColumns || []).find((item) => item.id === columnId);
+      if (!column) throw new Error('列不存在');
+      const result = await remoteRenameLearningColumn(column.user_id, columnId, name, column.name);
+      await refreshFromRemote();
+      return result;
+    },
     saveDraft: (key, value) => {
       draft.value[key] = value;
       saveDraftStorage(draft.value);

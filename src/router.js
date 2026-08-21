@@ -5,6 +5,7 @@ import HistoryView from './views/HistoryView.vue';
 import MembersView from './views/MembersView.vue';
 import ProfileView from './views/ProfileView.vue';
 import AdminView from './views/AdminView.vue';
+import { useDailyLog, whenReady } from './state.js';
 
 const routes = [
   { path: '/', redirect: '/home' },
@@ -21,21 +22,14 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach((to) => {
-  const raw = localStorage.getItem('dailylog-state-v1');
-  let currentUser = null;
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      currentUser = parsed.users?.find((item) => item.id === parsed.sessionUserId) || null;
-    } catch {
-      currentUser = null;
-    }
-  }
+router.beforeEach(async (to) => {
+  await whenReady();
+  const { currentUser } = useDailyLog();
+  const user = currentUser();
 
   if (to.meta.public) return true;
-  if (!currentUser) return '/login';
-  if (to.meta.admin && currentUser.role !== 'admin') return '/home';
+  if (!user) return '/login';
+  if (to.meta.admin && user.role !== 'admin') return '/home';
   return true;
 });
 

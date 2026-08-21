@@ -38,6 +38,25 @@ supabase/migrations/001_init.sql
 
 这一步必须通过 Supabase SQL Editor、已登录的 Supabase CLI，或数据库连接串执行。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能用于前端登录和受 RLS 保护的数据访问，不能创建表、创建 RLS policy 或初始化 Storage bucket。
 
+基础远端 API 验证：
+
+```bash
+npm run verify:supabase
+```
+
+如果要验证登录后的成员权限，可以临时设置：
+
+```env
+DAILYLOG_TEST_EMAIL=
+DAILYLOG_TEST_PASSWORD=
+```
+
+数据库结构、外键、唯一约束、RLS 和 Storage policy 的只读检查 SQL 在：
+
+```text
+supabase/verify_remote.sql
+```
+
 ## 说明
 
 - 前端使用 Vue 3 + Vite。

@@ -165,36 +165,89 @@ async function fileToDataUrl(file) {
   });
 }
 
-export async function compressImage(file, maxSize = 1600, quality = 0.82) {
-  if (typeof createImageBitmap !== 'function') {
-    const dataUrl = await fileToDataUrl(file);
+async function blobToDataUrl(blob) {
+  return await fileToDataUrl(blob);
+}
+
+async function fileToDrawable(file) {
+  if (typeof createImageBitmap === 'function') {
+    return await createImageBitmap(file);
+  }
+
+  const dataUrl = await fileToDataUrl(file);
+  return await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('图片读取失败'));
+    image.src = dataUrl;
+  });
+}
+
+async function canvasToBlob(canvas, quality) {
+  return await new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/webp', quality);
+  });
+}
+
+export async function compressImage(file, maxSize = 1600, quality = 0.82, targetBytes = 1048576) {
+  if (!file?.type?.startsWith('image/')) {
+    throw new Error('请选择图片文件');
+  }
+
+  const source = await fileToDrawable(file);
+  const sourceWidth = source.width || source.naturalWidth || 1;
+  const sourceHeight = source.height || source.naturalHeight || 1;
+  const qualitySteps = [quality, 0.72, 0.62, 0.52, 0.42];
+  let currentMaxSize = maxSize;
+  let best = null;
+
+  while (currentMaxSize >= 480) {
+    const ratio = Math.min(1, currentMaxSize / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * ratio));
+    const height = Math.max(1, Math.round(sourceHeight * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(source, 0, 0, width, height);
+
+    for (const stepQuality of qualitySteps) {
+      const blob = await canvasToBlob(canvas, stepQuality);
+      if (!blob || blob.type !== 'image/webp') {
+        throw new Error('当前浏览器不支持 WebP 图片压缩');
+      }
+
+      const candidate = { blob, width, height };
+      if (!best || candidate.blob.size < best.blob.size) best = candidate;
+      if (blob.size <= targetBytes) {
+        if (typeof source.close === 'function') source.close();
+        const dataUrl = await blobToDataUrl(blob);
+        return {
+          dataUrl,
+          previewUrl: dataUrl,
+          sizeBytes: blob.size,
+          contentType: blob.type,
+          width,
+          height
+        };
+      }
+    }
+
+    currentMaxSize = Math.floor(currentMaxSize * 0.82);
+  }
+
+  if (typeof source.close === 'function') source.close();
+  if (best?.blob && best.blob.size <= targetBytes) {
+    const dataUrl = await blobToDataUrl(best.blob);
     return {
       dataUrl,
-      previewUrl: dataUrl
+      previewUrl: dataUrl,
+      sizeBytes: best.blob.size,
+      contentType: best.blob.type,
+      width: best.width,
+      height: best.height
     };
   }
 
-  const bitmap = await createImageBitmap(file);
-  const ratio = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * ratio));
-  const height = Math.max(1, Math.round(bitmap.height * ratio));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(bitmap, 0, 0, width, height);
-
-  const dataUrl = canvas.toDataURL('image/webp', quality);
-  if (!dataUrl) {
-    const fallbackDataUrl = await fileToDataUrl(file);
-    return {
-      dataUrl: fallbackDataUrl,
-      previewUrl: fallbackDataUrl
-    };
-  }
-
-  return {
-    dataUrl,
-    previewUrl: dataUrl
-  };
+  throw new Error('图片压缩后仍超过 1MB，请选择更小的图片');
 }

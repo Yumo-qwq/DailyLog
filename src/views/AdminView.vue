@@ -32,7 +32,7 @@
                 <td>{{ member.is_active ? '启用' : '禁用' }}</td>
                 <td>
                   <button
-                    v-if="member.id !== currentUser.id"
+                    v-if="member.id !== user?.id"
                     class="button-ghost"
                     type="button"
                     @click="toggle(member)"
@@ -51,11 +51,12 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { useDailyLog } from '../state.js';
 import { notify } from '../toast.js';
 
 const { state, createUser, setUserActive, currentUser } = useDailyLog();
+const user = computed(() => currentUser());
 const form = reactive({
   email: '',
   password: '123456',
@@ -63,13 +64,21 @@ const form = reactive({
   role: 'member'
 });
 
-function create() {
-  createUser({ ...form });
-  notify('success', '用户已创建');
+async function create() {
+  try {
+    await createUser({ ...form });
+    notify('success', '用户已创建');
+  } catch (error) {
+    notify('error', error.message || '请在 Supabase Dashboard 创建内部账号');
+  }
 }
 
-function toggle(member) {
-  setUserActive(member.id, !member.is_active);
-  notify('success', `${member.display_name} 状态已更新`);
+async function toggle(member) {
+  try {
+    await setUserActive(member.id, !member.is_active);
+    notify('success', `${member.display_name} 状态已更新`);
+  } catch (error) {
+    notify('error', error.message || '请在 Supabase Dashboard 管理账号状态');
+  }
 }
 </script>
