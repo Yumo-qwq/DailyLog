@@ -35,12 +35,12 @@
           </form>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap sticky-table-wrap">
           <table class="data-table learning-table">
             <thead>
               <tr>
                 <th class="date-column">日期</th>
-                <th v-for="column in columns" :key="column.id" class="learning-column">
+                <th v-for="(column, columnIndex) in columns" :key="column.id" class="learning-column">
                   <div class="column-head">
                     <input
                       v-if="renamingId === column.id"
@@ -49,8 +49,30 @@
                       @keydown.enter.prevent="saveRename(column)"
                       @blur="saveRename(column)"
                     />
-                    <span v-else>{{ column.name }}</span>
-                    <button v-if="renamingId !== column.id" class="tiny-button" type="button" @click="startRename(column)">改名</button>
+                    <span v-else :title="column.name">{{ column.name }}</span>
+                    <div v-if="renamingId !== column.id" class="column-head-actions">
+                      <button
+                        class="column-move-button"
+                        type="button"
+                        title="向左移动"
+                        :aria-label="`${column.name}向左移动`"
+                        :disabled="columnIndex === 0 || movingColumns"
+                        @click="moveColumn(columnIndex, -1)"
+                      >
+                        &larr;
+                      </button>
+                      <button
+                        class="column-move-button"
+                        type="button"
+                        title="向右移动"
+                        :aria-label="`${column.name}向右移动`"
+                        :disabled="columnIndex === columns.length - 1 || movingColumns"
+                        @click="moveColumn(columnIndex, 1)"
+                      >
+                        &rarr;
+                      </button>
+                      <button class="tiny-button" type="button" @click="startRename(column)">改名</button>
+                    </div>
                   </div>
                 </th>
                 <th class="action-column">操作</th>
@@ -176,6 +198,7 @@ const {
   getLearningColumns,
   createLearningColumn,
   renameLearningColumn,
+  reorderLearningColumns,
   saveDraft
 } = useDailyLog();
 
@@ -193,6 +216,7 @@ const renameValue = ref('');
 const saveStatus = ref('等待修改');
 const previewImage = ref(null);
 const checkingIn = ref(false);
+const movingColumns = ref(false);
 
 function cloneImage(image) {
   if (!image) return null;
@@ -472,6 +496,25 @@ async function saveRename(column) {
   } finally {
     renamingId.value = '';
     renameValue.value = '';
+  }
+}
+
+async function moveColumn(columnIndex, direction) {
+  if (!user.value || movingColumns.value) return;
+  const targetIndex = columnIndex + direction;
+  if (targetIndex < 0 || targetIndex >= columns.value.length) return;
+
+  const orderedColumns = [...columns.value];
+  [orderedColumns[columnIndex], orderedColumns[targetIndex]] = [orderedColumns[targetIndex], orderedColumns[columnIndex]];
+  movingColumns.value = true;
+  try {
+    await reorderLearningColumns(user.value.id, orderedColumns);
+    saveStatus.value = `列顺序已保存 ${formatClock(new Date().toISOString())}`;
+    notify('success', '列顺序已更新');
+  } catch (error) {
+    notify('error', error.message || '调整列顺序失败');
+  } finally {
+    movingColumns.value = false;
   }
 }
 

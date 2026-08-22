@@ -37,6 +37,7 @@ supabase/migrations/001_init.sql
 supabase/migrations/002_profile_avatars.sql
 supabase/migrations/003_username_auth.sql
 supabase/migrations/004_daily_checkin.sql
+supabase/migrations/005_admin_table_visibility.sql
 ```
 
 这一步必须通过 Supabase SQL Editor、已登录的 Supabase CLI，或数据库连接串执行。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能用于前端登录和受 RLS 保护的数据访问，不能创建表、创建 RLS policy 或初始化 Storage bucket。

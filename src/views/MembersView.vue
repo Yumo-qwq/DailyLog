@@ -31,7 +31,7 @@
             </div>
 
             <div class="member-card-meta">
-              <span>连续 {{ metricsForUser(member.id).streak }}</span>
+              <span>连续打卡 {{ metricsForUser(member.id).streak }} 天</span>
               <span>{{ metricsForUser(member.id).total }} 条</span>
             </div>
 
@@ -174,6 +174,7 @@ function actionLabel(action) {
     'cell-images': '图片更新',
     'column-create': '新增列',
     'column-rename': '改名',
+    'column-reorder': '调整列顺序',
     'profile-update': '资料更新',
     'user-create': '创建账号',
     'user-enable': '启用账号',

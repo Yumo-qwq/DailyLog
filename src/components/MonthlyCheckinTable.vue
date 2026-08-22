@@ -1,5 +1,5 @@
 <template>
-  <div class="table-wrap">
+  <div class="table-wrap sticky-table-wrap">
     <table class="data-table learning-table member-table">
       <thead>
         <tr>

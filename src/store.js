@@ -404,7 +404,10 @@ export function saveState(state) {
 export function getLearningColumns(state, userId) {
   return (state.learningColumns || [])
     .filter((item) => item.user_id === userId)
-    .sort((a, b) => a.order - b.order || a.created_at.localeCompare(b.created_at));
+    .sort((a, b) =>
+      (a.column_order ?? a.order ?? 0) - (b.column_order ?? b.order ?? 0)
+      || String(a.created_at || '').localeCompare(String(b.created_at || ''))
+    );
 }
 
 export function getActivityLogs(state, limit = 40) {

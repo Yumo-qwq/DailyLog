@@ -259,6 +259,35 @@ export async function renameLearningColumn(userId, columnId, name, previousName 
   return data;
 }
 
+export async function reorderLearningColumns(userId, orderedColumns = []) {
+  ensureSupabase();
+  const columns = Array.isArray(orderedColumns) ? orderedColumns : [];
+  if (!columns.length) return [];
+  if (columns.some((column) => !column?.id || column.user_id !== userId)) {
+    throw new Error('列顺序数据无效');
+  }
+
+  const payload = columns.map((column, index) => ({
+    id: column.id,
+    user_id: userId,
+    name: column.name,
+    column_order: index + 1
+  }));
+
+  const { data, error } = await supabase
+    .from('learning_columns')
+    .upsert(payload, { onConflict: 'id' })
+    .select('*');
+  if (error) throw error;
+
+  await recordTodayChangeLog({
+    userId,
+    action: 'column-reorder',
+    summary: `调整列顺序：${payload.map((column) => column.name).join('、')}`
+  });
+  return data || payload;
+}
+
 export async function updateProfile(userId, payload = {}) {
   ensureSupabase();
   const update = {};

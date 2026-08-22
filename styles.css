@@ -484,6 +484,18 @@ a {
   background: #fff;
 }
 
+.sticky-table-wrap {
+  max-height: min(72vh, 760px);
+}
+
+.sticky-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: #f8fafb;
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+
 .table,
 .data-table {
   width: 100%;
@@ -571,6 +583,37 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.column-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.column-move-button {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.column-move-button:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.column-move-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .tiny-button {
@@ -821,6 +864,37 @@ a {
   align-items: start;
 }
 
+.table-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.segmented-control {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f2f5f7;
+}
+
+.segmented-control button {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.segmented-control button.active {
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(24, 39, 75, 0.12);
+}
+
 .month-picker {
   display: inline-flex;
   align-items: center;
@@ -1031,6 +1105,11 @@ a {
   gap: 16px;
 }
 
+.members-layout > .section,
+.members-layout .section-inner {
+  min-width: 0;
+}
+
 .login-copy h2 {
   margin: 12px 0 8px;
   font-size: 30px;
@@ -1101,13 +1180,17 @@ a {
 
 .member-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
 .member-card {
   display: grid;
+  grid-template-rows: auto auto 1fr;
   gap: 10px;
+  min-width: 0;
+  height: 142px;
+  align-content: start;
   text-align: left;
   padding: 12px;
   border: 1px solid var(--line);
@@ -1156,6 +1239,13 @@ a {
   gap: 10px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.member-card-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-list {
@@ -1296,6 +1386,10 @@ a {
     display: inline-flex;
   }
 
+  .member-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .main {
     padding: 14px;
   }
@@ -1332,6 +1426,15 @@ a {
 
   .month-picker {
     justify-content: space-between;
+  }
+
+  .table-toolbar-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .member-grid {
+    grid-template-columns: 1fr;
   }
 
   .daily-checkin-bar {
