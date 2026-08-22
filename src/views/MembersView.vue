@@ -48,10 +48,30 @@
             <h2>{{ selectedMember?.display_name || '成员' }} 的表格</h2>
             <p class="muted">选择月份查看整月记录，包含文字和图片内容。</p>
           </div>
-          <label class="month-picker">
-            <span>查看月份</span>
-            <input v-model="selectedMonth" type="month" :max="currentMonth" />
-          </label>
+          <div class="table-toolbar-controls">
+            <div class="segmented-control" role="group" aria-label="成员记录日期顺序">
+              <button
+                type="button"
+                :class="{ active: memberOrder === 'desc' }"
+                :aria-pressed="memberOrder === 'desc'"
+                @click="memberOrder = 'desc'"
+              >
+                最新在前
+              </button>
+              <button
+                type="button"
+                :class="{ active: memberOrder === 'asc' }"
+                :aria-pressed="memberOrder === 'asc'"
+                @click="memberOrder = 'asc'"
+              >
+                最早在前
+              </button>
+            </div>
+            <label class="month-picker">
+              <span>查看月份</span>
+              <input v-model="selectedMonth" type="month" :max="currentMonth" />
+            </label>
+          </div>
         </div>
 
         <MonthlyCheckinTable :rows="memberRows" :columns="selectedColumns" @preview-image="openImage" />
@@ -103,6 +123,7 @@ const currentMonth = currentMonthKey();
 const members = computed(() => state.users.filter((item) => item.is_active));
 const selectedMemberId = ref('');
 const selectedMonth = ref(currentMonth);
+const memberOrder = ref('desc');
 const previewImage = ref(null);
 
 watch(
@@ -124,7 +145,9 @@ watch(
 const selectedMember = computed(() => members.value.find((item) => item.id === selectedMemberId.value) || null);
 const selectedColumns = computed(() => getLearningColumns(selectedMember.value?.id));
 const memberRows = computed(() => {
-  return monthDates(selectedMonth.value).map((date) => {
+  const dates = monthDates(selectedMonth.value);
+  if (memberOrder.value === 'desc') dates.reverse();
+  return dates.map((date) => {
     const record = state.checkins.find((item) => item.user_id === selectedMember.value?.id && item.date === date);
     const cells = {};
     for (const column of selectedColumns.value) {
@@ -143,7 +166,10 @@ const memberRows = computed(() => {
 const selectedLogs = computed(() =>
   [...(state.activityLogs || [])]
     .filter((item) => item.user_id === selectedMember.value?.id && item.date?.startsWith(selectedMonth.value))
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .sort((a, b) => {
+      const result = a.created_at.localeCompare(b.created_at);
+      return memberOrder.value === 'desc' ? -result : result;
+    })
     .slice(0, 100)
 );
 
