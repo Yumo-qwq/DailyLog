@@ -116,6 +116,24 @@ export function monthLabel(dateKey) {
   return dateKey.slice(0, 7);
 }
 
+export function currentMonthKey(timeZone = ZONE) {
+  return todayKey(timeZone).slice(0, 7);
+}
+
+export function monthDates(monthKey) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(monthKey || ''));
+  if (!match) return [];
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return [];
+
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Array.from({ length: daysInMonth }, (_, index) =>
+    `${match[1]}-${match[2]}-${String(index + 1).padStart(2, '0')}`
+  );
+}
+
 export function toTimeString(value) {
   return new Intl.DateTimeFormat('zh-CN', {
     timeZone: ZONE,

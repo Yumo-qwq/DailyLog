@@ -7,12 +7,12 @@
       </div>
 
       <div class="admin-grid">
-        <form class="admin-form" @submit.prevent="create">
+        <form class="admin-form" @submit.prevent="sendInvite">
+          <label class="field"><span>邮箱</span><input v-model="form.email" type="email" autocomplete="off" autocapitalize="none" /></label>
           <label class="field"><span>用户名</span><input v-model="form.username" type="text" autocomplete="off" autocapitalize="none" /></label>
           <label class="field"><span>昵称</span><input v-model="form.display_name" type="text" autocomplete="off" /></label>
-          <label class="field"><span>密码</span><input v-model="form.password" type="password" autocomplete="new-password" /></label>
           <label class="field"><span>角色</span><select v-model="form.role"><option value="member">member</option><option value="admin">admin</option></select></label>
-          <button class="button" type="submit">创建账号</button>
+          <button class="button" type="submit">发送邀请</button>
         </form>
 
         <div class="table-wrap">
@@ -57,25 +57,25 @@ import { computed, reactive } from 'vue';
 import { useDailyLog } from '../state.js';
 import { notify } from '../toast.js';
 
-const { state, createUser, setUserActive, currentUser } = useDailyLog();
+const { state, inviteUser, setUserActive, currentUser } = useDailyLog();
 const user = computed(() => currentUser());
 const form = reactive({
+  email: '',
   username: '',
   display_name: '',
-  password: '123456',
   role: 'member'
 });
 
-async function create() {
+async function sendInvite() {
   try {
-    await createUser({ ...form });
+    await inviteUser({ ...form });
+    form.email = '';
     form.username = '';
     form.display_name = '';
-    form.password = '123456';
     form.role = 'member';
-    notify('success', '用户已创建');
+    notify('success', '邀请已发送，用户将自行设置密码');
   } catch (error) {
-    notify('error', error.message || '创建账号失败');
+    notify('error', error.message || '发送邀请失败');
   }
 }
 

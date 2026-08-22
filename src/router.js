@@ -5,11 +5,13 @@ import HistoryView from './views/HistoryView.vue';
 import MembersView from './views/MembersView.vue';
 import ProfileView from './views/ProfileView.vue';
 import AdminView from './views/AdminView.vue';
+import SetPasswordView from './views/SetPasswordView.vue';
 import { useDailyLog, whenReady } from './state.js';
 
 const routes = [
   { path: '/', redirect: '/home' },
   { path: '/login', component: LoginView, meta: { public: true, title: '登录' } },
+  { path: '/set-password', component: SetPasswordView, meta: { public: true, title: '设置密码' } },
   { path: '/home', component: DashboardView, meta: { title: '每日表格' } },
   { path: '/history', component: HistoryView, meta: { title: '历史记录' } },
   { path: '/members', component: MembersView, meta: { title: '成员' } },

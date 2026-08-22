@@ -73,10 +73,7 @@ function Select-Table {
 }
 
 function Sign-In {
-  param([string]$Username, [string]$Email, [string]$Password)
-  if ($Username) {
-    return Invoke-Supabase -Method "POST" -Path "/functions/v1/username-login" -Body @{ username = $Username; password = $Password } -ExtraHeaders @{ "Content-Type" = "application/json" }
-  }
+  param([string]$Email, [string]$Password)
   return Invoke-Supabase -Method "POST" -Path "/auth/v1/token?grant_type=password" -Body @{ email = $Email; password = $Password } -ExtraHeaders @{ "Content-Type" = "application/json" }
 }
 
@@ -207,15 +204,13 @@ $result.anonWrite = Insert-Row -Table "checkins" -Token $Key -Body @{
 
 $result.bucketAnonProbe = Invoke-Supabase -Path "/storage/v1/bucket/checkin-images"
 
-$usernameA = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_USERNAME", "Process")
 $emailA = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_EMAIL", "Process")
 $passwordA = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_PASSWORD", "Process")
-$usernameB = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_USERNAME_2", "Process")
 $emailB = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_EMAIL_2", "Process")
 $passwordB = [Environment]::GetEnvironmentVariable("DAILYLOG_TEST_PASSWORD_2", "Process")
 
-if (($usernameA -or $emailA) -and $passwordA) {
-  $authA = Sign-In -Username $usernameA -Email $emailA -Password $passwordA
+if ($emailA -and $passwordA) {
+  $authA = Sign-In -Email $emailA -Password $passwordA
   $result.authA = [ordered]@{ login = $authA }
 
   if ($authA.ok) {
@@ -319,8 +314,8 @@ if (($usernameA -or $emailA) -and $passwordA) {
       }
     }
 
-    if (($usernameB -or $emailB) -and $passwordB) {
-      $authB = Sign-In -Username $usernameB -Email $emailB -Password $passwordB
+    if ($emailB -and $passwordB) {
+      $authB = Sign-In -Email $emailB -Password $passwordB
       $result.authB = [ordered]@{ login = $authB }
       if ($authB.ok) {
         $tokenB = $authB.payload.access_token
@@ -413,7 +408,7 @@ if (($usernameA -or $emailA) -and $passwordA) {
 } else {
   $result.memberChecks = [ordered]@{
     skipped = $true
-    reason = "Set DAILYLOG_TEST_USERNAME and DAILYLOG_TEST_PASSWORD. Set DAILYLOG_TEST_USERNAME_2 and DAILYLOG_TEST_PASSWORD_2 for cross-user checks. DAILYLOG_TEST_EMAIL is still accepted for legacy checks."
+    reason = "Set DAILYLOG_TEST_EMAIL and DAILYLOG_TEST_PASSWORD. Set DAILYLOG_TEST_EMAIL_2 and DAILYLOG_TEST_PASSWORD_2 for cross-user checks."
   }
 }
 

@@ -2,10 +2,10 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">L</div>
+        <div class="brand-mark" aria-hidden="true">D</div>
         <div>
-          <div class="brand-title">学习监督</div>
-          <div class="brand-subtitle">内部打卡 · 当天可改 · 历史锁定</div>
+          <div class="brand-title">DailyLog</div>
+          <div class="brand-subtitle">每日学习记录</div>
         </div>
       </div>
 
@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watchEffect } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { useDailyLog } from './state.js';
 import { formatDate, initials, todayKey } from './utils.js';
@@ -57,8 +57,12 @@ const route = useRoute();
 const router = useRouter();
 
 const user = computed(() => currentUser());
-const title = computed(() => route.meta.title || '学习监督');
+const title = computed(() => route.meta.title || 'DailyLog');
 const todayLabel = computed(() => formatDate(todayKey()));
+
+watchEffect(() => {
+  document.title = title.value === 'DailyLog' ? 'DailyLog' : `DailyLog · ${title.value}`;
+});
 
 async function handleLogout() {
   clearDraft();

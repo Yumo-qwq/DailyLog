@@ -46,24 +46,45 @@ supabase/migrations/003_username_auth.sql
 - `display_name` 是可修改昵称。
 - 系统最终身份标识始终是 Supabase Auth user id，也就是 `profiles.id`。
 
-登录体验是 username + password。Supabase Auth 仍然使用 Email/Password，但 email 是 Edge Function 在服务端解析的内部凭据，前端不显示、不保存、不查询 Auth email。
+登录使用用户邮箱 + 用户自行设置的密码。`profiles.username` 仍是不可变的业务登录标识和展示辅助字段，但不再被当作 Auth credential。Supabase Auth 的 `user.id` 是最终身份标识，业务表只通过 `user_id` / `profiles.id` 关联。
 
-需要部署两个 Edge Function：
+需要部署邀请 Edge Function：
 
 ```bash
-supabase functions deploy username-login
-supabase functions deploy admin-create-user
+supabase functions deploy admin-invite-user
 ```
 
-服务端函数使用 Supabase 自动提供的 `SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`。不要把 service role / secret key 放进前端环境变量。
+服务端函数使用 Supabase 自动提供的 `SUPABASE_URL` 和 `SUPABASE_SERVICE_ROLE_KEY`。不要把 service role / secret key 放进前端环境变量。邀请函数只接收邮箱、用户名、昵称和角色，绝不接收密码。
 
-可选配置：
+必须配置 Edge Function secret，让邀请邮件回到部署后的网站：
 
 ```env
-DAILYLOG_INTERNAL_EMAIL_DOMAIN=dailylog.local
+DAILYLOG_APP_URL=https://你的部署域名
 ```
 
-系统不开放公开注册页面，账号只能由管理员在“管理员”页面创建。管理员创建账号时填写 `username`、昵称、密码和角色。
+例如：
+
+```bash
+supabase secrets set DAILYLOG_APP_URL=https://dailylog.example.com
+```
+
+部署新函数后，应删除旧的密码代设函数，避免线上仍存在旧入口：
+
+```bash
+supabase functions delete admin-create-user
+supabase functions delete username-login
+```
+
+Supabase Dashboard → Authentication → URL Configuration 中还要配置：
+
+- Site URL：部署后的网站地址
+- Redirect URLs：`https://你的部署域名/set-password`
+- Authentication → Providers → Email：保持启用
+- Authentication → SMTP：生产环境配置自己的 SMTP；否则邀请邮件可能使用开发邮件服务或无法稳定送达
+
+管理员在“管理员”页面填写邮箱、`username`、昵称和角色，点击“发送邀请”。用户打开邮件中的链接，在 `/set-password` 页面自行设置密码。管理员和开发者不会看到这个密码。
+
+首次邀请流程中的临时会话由 Supabase Auth 处理。设置密码后，用户以后直接使用邮箱和自己的密码登录。
 
 基础远端 API 验证：
 
@@ -71,10 +92,10 @@ DAILYLOG_INTERNAL_EMAIL_DOMAIN=dailylog.local
 npm run verify:supabase
 ```
 
-如果要验证登录后的成员权限，可以临时设置 username 测试账号：
+如果要验证登录后的成员权限，可以使用测试用户自己的邮箱和密码：
 
 ```env
-DAILYLOG_TEST_USERNAME=
+DAILYLOG_TEST_EMAIL=
 DAILYLOG_TEST_PASSWORD=
 ```
 

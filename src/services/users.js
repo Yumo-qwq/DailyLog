@@ -28,24 +28,25 @@ async function edgeFunctionErrorMessage(error, fallback) {
   return error?.message || fallback;
 }
 
-export async function createUser(payload = {}) {
+export async function inviteUser(payload = {}) {
   ensureSupabase();
+  const email = String(payload.email || '').trim().toLowerCase();
   const username = normalizeUsername(payload.username);
-  const { data, error } = await supabase.functions.invoke('admin-create-user', {
+  const { data, error } = await supabase.functions.invoke('admin-invite-user', {
     body: {
+      email,
       username,
-      password: String(payload.password || ''),
       display_name: String(payload.display_name || '').trim(),
       role: payload.role === 'admin' ? 'admin' : 'member'
     }
   });
 
   if (error) {
-    throw new Error(await edgeFunctionErrorMessage(error, '管理员创建账号'));
+    throw new Error(await edgeFunctionErrorMessage(error, '发送用户邀请'));
   }
 
   if (!data?.profile) {
-    throw new Error(data?.error || '创建账号失败');
+    throw new Error(data?.error || '发送邀请失败');
   }
   return data.profile;
 }

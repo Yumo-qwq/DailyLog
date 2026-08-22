@@ -17,12 +17,15 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 }
 
 function normalizeUsername(value: unknown) {
-  const normalized = String(value || '')
+  return String(value || '')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '');
-  return normalized || '';
+}
+
+function normalizeEmail(value: unknown) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function assertUsername(username: string) {
@@ -31,13 +34,20 @@ function assertUsername(username: string) {
   }
 }
 
-function internalEmailFor(username: string) {
-  const domain = Deno.env.get('DAILYLOG_INTERNAL_EMAIL_DOMAIN') || 'dailylog.local';
-  return `${username}.${crypto.randomUUID()}@${domain}`;
+function assertEmail(email: string) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('请输入有效的邮箱地址');
+  }
 }
 
 function displayNameFor(value: unknown, username: string) {
   return String(value || '').trim() || username;
+}
+
+function inviteRedirectTo() {
+  const appUrl = Deno.env.get('DAILYLOG_APP_URL') || '';
+  if (!appUrl) throw new Error('DAILYLOG_APP_URL is not configured');
+  return new URL('/set-password', appUrl).toString();
 }
 
 Deno.serve(async (request) => {
@@ -51,15 +61,12 @@ Deno.serve(async (request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-
   if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse({ error: 'Admin create user service is not configured' }, 500);
+    return jsonResponse({ error: 'Admin invite service is not configured' }, 500);
   }
 
   const bearer = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || '';
-  if (!bearer) {
-    return jsonResponse({ error: '未登录' }, 401);
-  }
+  if (!bearer) return jsonResponse({ error: '未登录' }, 401);
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
@@ -83,26 +90,23 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: '需要管理员权限' }, 403);
   }
 
-  let body: { username?: string; password?: string; role?: string; display_name?: string };
+  let body: { email?: string; username?: string; role?: string; display_name?: string };
   try {
     body = await request.json();
   } catch {
     return jsonResponse({ error: '请求格式不正确' }, 400);
   }
 
+  const email = normalizeEmail(body.email);
   const username = normalizeUsername(body.username);
-  const password = String(body.password || '');
   const role = body.role === 'admin' ? 'admin' : 'member';
   const displayName = displayNameFor(body.display_name, username);
 
   try {
+    assertEmail(email);
     assertUsername(username);
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : '用户名不合法' }, 400);
-  }
-
-  if (password.length < 6) {
-    return jsonResponse({ error: '密码至少 6 位' }, 400);
+    return jsonResponse({ error: error instanceof Error ? error.message : '邀请信息不合法' }, 400);
   }
 
   const { data: existingProfile, error: existingProfileError } = await adminClient
@@ -118,19 +122,22 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: '用户名已存在' }, 409);
   }
 
-  const email = internalEmailFor(username);
-  const { data: created, error: createError } = await adminClient.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
+  const options: Record<string, unknown> = {
+    data: {
       username,
       display_name: displayName
     }
-  });
+  };
+  try {
+    options.redirectTo = inviteRedirectTo();
+  } catch (error) {
+    return jsonResponse({ error: error instanceof Error ? error.message : '邀请回调地址未配置' }, 500);
+  }
 
-  if (createError || !created?.user?.id) {
-    return jsonResponse({ error: createError?.message || '创建账号失败' }, 400);
+  // Supabase generates and stores the credential internally. This endpoint never receives a password.
+  const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, options);
+  if (inviteError || !invited?.user?.id) {
+    return jsonResponse({ error: inviteError?.message || '发送邀请失败' }, 400);
   }
 
   const { data: profile, error: profileError } = await adminClient
@@ -140,14 +147,14 @@ Deno.serve(async (request) => {
       role,
       is_active: true
     })
-    .eq('id', created.user.id)
+    .eq('id', invited.user.id)
     .select('id, username, display_name, avatar_url, role, is_active, created_at')
     .single();
 
-  if (profileError) {
-    await adminClient.auth.admin.deleteUser(created.user.id);
-    return jsonResponse({ error: profileError.message }, 500);
+  if (profileError || !profile || profile.username !== username) {
+    await adminClient.auth.admin.deleteUser(invited.user.id);
+    return jsonResponse({ error: profileError?.message || '用户资料创建失败' }, 500);
   }
 
-  return jsonResponse({ profile });
+  return jsonResponse({ profile, invitation_sent: true });
 });

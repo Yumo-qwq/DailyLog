@@ -43,55 +43,18 @@
 
     <section class="section">
       <div class="section-inner">
-        <div class="section-title">
+        <div class="section-title table-toolbar">
           <div>
             <h2>{{ selectedMember?.display_name || '成员' }} 的表格</h2>
-            <p class="muted">只读查看，包含文字和图片内容。</p>
+            <p class="muted">选择月份查看整月记录，包含文字和图片内容。</p>
           </div>
-          <span class="status muted">只读</span>
+          <label class="month-picker">
+            <span>查看月份</span>
+            <input v-model="selectedMonth" type="month" :max="currentMonth" />
+          </label>
         </div>
 
-        <div class="table-wrap">
-          <table class="data-table learning-table member-table">
-            <thead>
-              <tr>
-                <th class="date-column">日期</th>
-                <th v-for="column in selectedColumns" :key="column.id" class="learning-column">
-                  <div class="column-head">
-                    <span>{{ column.name }}</span>
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in memberRows" :key="row.date" :class="{ today: row.isToday }">
-                <td class="date-cell">
-                  <strong>{{ formatDate(row.date) }}</strong>
-                  <span v-if="row.isToday" class="status ok">今天</span>
-                  <span v-else class="status muted">锁定</span>
-                </td>
-
-                <td v-for="column in selectedColumns" :key="column.id" class="learning-cell">
-                  <div class="cell-block readonly-cell">
-                    <div class="cell-content">{{ row.cells[column.id]?.content || '-' }}</div>
-
-                    <div v-if="row.cells[column.id]?.images?.length" class="cell-thumb-grid">
-                      <div v-for="image in row.cells[column.id].images" :key="image.id" class="cell-thumb">
-                        <button class="thumb-preview" type="button" @click="openImage(image)">
-                          <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div class="cell-footer">
-                      <span class="cell-time">{{ cellTime(row, column.id) }}</span>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <MonthlyCheckinTable :rows="memberRows" :columns="selectedColumns" @preview-image="openImage" />
       </div>
     </section>
 
@@ -100,7 +63,7 @@
         <div class="section-title">
           <div>
             <h2>{{ selectedMember?.display_name || '成员' }} 的日志</h2>
-            <p class="muted">只显示保存后写入的修改记录。</p>
+            <p class="muted">只显示保存后写入的修改记录，范围为所选月份。</p>
           </div>
           <span class="status muted">{{ selectedLogs.length }}</span>
         </div>
@@ -129,14 +92,17 @@
 import { computed, ref, watch } from 'vue';
 import CompactHeatmap from '../components/CompactHeatmap.vue';
 import ImageLightbox from '../components/ImageLightbox.vue';
+import MonthlyCheckinTable from '../components/MonthlyCheckinTable.vue';
 import { useDailyLog } from '../state.js';
 import { normalizeCellRecord } from '../services/model.js';
-import { buildHeatmap, formatDate, formatDateTime, formatClock, initials, shiftDate, todayKey } from '../utils.js';
+import { buildHeatmap, currentMonthKey, formatDateTime, initials, monthDates, todayKey } from '../utils.js';
 
 const { state, currentUser, getLearningColumns, metricsForUser } = useDailyLog();
 const today = todayKey();
+const currentMonth = currentMonthKey();
 const members = computed(() => state.users.filter((item) => item.is_active));
 const selectedMemberId = ref('');
+const selectedMonth = ref(currentMonth);
 const previewImage = ref(null);
 
 watch(
@@ -158,8 +124,7 @@ watch(
 const selectedMember = computed(() => members.value.find((item) => item.id === selectedMemberId.value) || null);
 const selectedColumns = computed(() => getLearningColumns(selectedMember.value?.id));
 const memberRows = computed(() => {
-  const dates = Array.from({ length: 12 }, (_, index) => shiftDate(today, -index));
-  return dates.map((date) => {
+  return monthDates(selectedMonth.value).map((date) => {
     const record = state.checkins.find((item) => item.user_id === selectedMember.value?.id && item.date === date);
     const cells = {};
     for (const column of selectedColumns.value) {
@@ -168,6 +133,7 @@ const memberRows = computed(() => {
     return {
       date,
       isToday: date === today,
+      isFuture: date > today,
       cells
     };
   });
@@ -175,9 +141,9 @@ const memberRows = computed(() => {
 
 const selectedLogs = computed(() =>
   [...(state.activityLogs || [])]
-    .filter((item) => item.user_id === selectedMember.value?.id)
+    .filter((item) => item.user_id === selectedMember.value?.id && item.date?.startsWith(selectedMonth.value))
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 12)
+    .slice(0, 100)
 );
 
 const heatmaps = computed(() => {
@@ -187,12 +153,6 @@ const heatmaps = computed(() => {
   }
   return result;
 });
-
-function cellTime(row, columnId) {
-  const cell = row.cells[columnId];
-  if (cell?.updated_at) return `最后修改 ${formatClock(cell.updated_at)}`;
-  return '未修改';
-}
 
 function openImage(image) {
   const src = image?.previewUrl || image?.dataUrl || image?.url || '';

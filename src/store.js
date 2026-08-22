@@ -230,7 +230,6 @@ function seedState() {
     {
       id: 'u-admin',
       username: 'admin',
-      password: '123456',
       display_name: 'admin',
       avatar_url: '',
       role: 'admin',
@@ -240,7 +239,6 @@ function seedState() {
     {
       id: 'u-alice',
       username: 'alice',
-      password: '123456',
       display_name: 'alice',
       avatar_url: '',
       role: 'member',
@@ -250,7 +248,6 @@ function seedState() {
     {
       id: 'u-bob',
       username: 'bob',
-      password: '123456',
       display_name: 'bob',
       avatar_url: '',
       role: 'member',
@@ -260,7 +257,6 @@ function seedState() {
     {
       id: 'u-charlie',
       username: 'charlie',
-      password: '123456',
       display_name: 'charlie',
       avatar_url: '',
       role: 'member',
@@ -336,6 +332,9 @@ function ensureTableShape(state) {
   state.learningColumns = Array.isArray(state.learningColumns) ? state.learningColumns : [];
   state.checkins = Array.isArray(state.checkins) ? state.checkins : [];
   state.activityLogs = Array.isArray(state.activityLogs) ? state.activityLogs : [];
+
+  // Remove password remnants from older local demo snapshots.
+  for (const user of state.users) delete user.password;
 
   for (const user of state.users) {
     const userColumns = state.learningColumns.filter((item) => item.user_id === user.id);
@@ -542,20 +541,6 @@ export function recentCheckins(state, limit = 8) {
     .slice(0, limit);
 }
 
-export function login(state, username, password) {
-  const normalized = String(username || '').trim().toLowerCase();
-  const user = state.users.find((item) => item.username?.toLowerCase() === normalized && item.password === password);
-  if (!user) {
-    throw new Error('账号或密码不正确');
-  }
-  if (!user.is_active) {
-    throw new Error('账号已被禁用');
-  }
-  state.sessionUserId = user.id;
-  saveState(state);
-  return user;
-}
-
 export function logout(state) {
   state.sessionUserId = null;
   saveState(state);
@@ -587,42 +572,6 @@ export function updateProfile(state, userId, payload) {
     ]);
   }
 
-  saveState(state);
-  return user;
-}
-
-export function createUser(state, payload) {
-  const username = String(payload.username || '').trim().toLowerCase();
-  if (!username) throw new Error('请填写用户名');
-  if (state.users.some((item) => item.username?.toLowerCase() === username)) {
-    throw new Error('用户名已存在');
-  }
-
-  const timestamp = nowIso();
-  const displayName = String(payload.display_name || '').trim() || username;
-  const user = {
-    id: createId(),
-    username,
-    password: payload.password || '123456',
-    display_name: displayName,
-    avatar_url: payload.avatar_url || '',
-    role: payload.role === 'admin' ? 'admin' : 'member',
-    is_active: true,
-    created_at: timestamp
-  };
-
-  state.users.push(user);
-  state.learningColumns = state.learningColumns || [];
-  state.learningColumns.push(...defaultColumnsForUser(user.id, timestamp));
-  recordActivity(state, [
-    {
-      user_id: user.id,
-      user_name: user.display_name,
-      action: 'user-create',
-      summary: `创建账号 ${user.display_name}`,
-      created_at: timestamp
-    }
-  ]);
   saveState(state);
   return user;
 }

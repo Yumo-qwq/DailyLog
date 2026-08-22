@@ -11,45 +11,24 @@ export async function getSession() {
   return data.session || null;
 }
 
-async function usernameLoginErrorMessage(error) {
-  if (error?.name === 'FunctionsFetchError') return '用户名登录服务未部署或不可用';
-
-  const response = error?.context;
-  if (response?.status >= 500 && typeof response.json === 'function') {
-    try {
-      const payload = await response.json();
-      if (payload?.error) return payload.error;
-    } catch {
-      // Keep the public login error generic below.
-    }
-  }
-
-  return '用户名或密码不正确';
-}
-
-export async function signInWithUsername(username, password) {
+export async function signInWithEmail(email, password) {
   ensureSupabase();
 
-  const { data, error } = await supabase.functions.invoke('username-login', {
-    body: {
-      username: String(username || '').trim(),
-      password: String(password || '')
-    }
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: String(email || '').trim().toLowerCase(),
+    password: String(password || '')
   });
-  if (error) {
-    throw new Error(await usernameLoginErrorMessage(error));
-  }
+  if (error) throw new Error('邮箱或密码不正确');
+  return data.session || null;
+}
 
-  if (!data?.access_token || !data?.refresh_token) {
-    throw new Error('用户名或密码不正确');
-  }
-
-  const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-    access_token: data.access_token,
-    refresh_token: data.refresh_token
+export async function updatePassword(password) {
+  ensureSupabase();
+  const { data, error } = await supabase.auth.updateUser({
+    password: String(password || '')
   });
-  if (sessionError) throw sessionError;
-  return sessionData.session || null;
+  if (error) throw error;
+  return data.user || null;
 }
 
 export async function signOut() {

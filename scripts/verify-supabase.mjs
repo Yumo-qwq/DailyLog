@@ -13,7 +13,6 @@ if (existsSync(envPath)) {
 
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const username = process.env.DAILYLOG_TEST_USERNAME || '';
 const email = process.env.DAILYLOG_TEST_EMAIL || '';
 const password = process.env.DAILYLOG_TEST_PASSWORD || '';
 
@@ -58,15 +57,6 @@ async function probeTable(name, select) {
   return await request(`/rest/v1/${name}?select=${encodeURIComponent(select)}&limit=1`);
 }
 
-async function signInWithUsername() {
-  if (!username || !password) return null;
-  return await request('/functions/v1/username-login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-}
-
 async function signInWithEmail() {
   if (!email || !password) return null;
   return await request('/auth/v1/token?grant_type=password', {
@@ -77,7 +67,7 @@ async function signInWithEmail() {
 }
 
 async function signIn() {
-  return (await signInWithUsername()) || (await signInWithEmail());
+  return await signInWithEmail();
 }
 
 async function getAuthUser(accessToken) {
@@ -197,7 +187,7 @@ if (auth?.ok && auth.payload?.access_token) {
 
   memberChecks = {
     loginOk: true,
-    loginMode: username ? 'username' : 'email',
+    loginMode: 'email',
     userId: authUserId,
     canReadProfiles: profileRead.ok,
     profileRead,
@@ -212,7 +202,7 @@ if (auth?.ok && auth.payload?.access_token) {
 } else {
   memberChecks = {
     skipped: true,
-    reason: 'Set DAILYLOG_TEST_USERNAME and DAILYLOG_TEST_PASSWORD to test logged-in permissions. DAILYLOG_TEST_EMAIL is still accepted for legacy checks.'
+    reason: 'Set DAILYLOG_TEST_EMAIL and DAILYLOG_TEST_PASSWORD to test logged-in permissions.'
   };
 }
 

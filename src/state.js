@@ -1,9 +1,9 @@
 import { computed, reactive, ref } from 'vue';
 import { clearDraft as clearDraftStorage, loadDraft, saveDraft as saveDraftStorage, getLearningColumns, getCurrentUser, getProfile, globalStats, isAdmin, metricsForUser, recentCheckins, findTodayCheckin } from './store.js';
 import { hasSupabaseConfig } from './lib/supabase.js';
-import { getSession, onAuthStateChange, signInWithUsername, signOut } from './services/auth.js';
+import { getSession, onAuthStateChange, signInWithEmail, signOut } from './services/auth.js';
 import { createLearningColumn as remoteCreateLearningColumn, loadRemoteState, renameLearningColumn as remoteRenameLearningColumn, saveTodayCheckin, updateProfile as remoteUpdateProfile } from './services/checkins.js';
-import { createUser as remoteCreateUser, setUserActive as remoteSetUserActive } from './services/users.js';
+import { inviteUser as remoteInviteUser, setUserActive as remoteSetUserActive } from './services/users.js';
 import { todayKey } from './utils.js';
 
 const emptySnapshot = () => ({
@@ -131,8 +131,8 @@ export function useDailyLog() {
     metricsForUser: (userId) => metricsForUser(state, userId),
     findTodayCheckin: (userId, date) => findTodayCheckin(state, userId, date),
     getLearningColumns: (userId) => getLearningColumns(state, userId),
-    login: async (username, password) => {
-      await signInWithUsername(username, password);
+    login: async (email, password) => {
+      await signInWithEmail(email, password);
       await refreshFromRemote();
       return getCurrentUser(state);
     },
@@ -147,8 +147,8 @@ export function useDailyLog() {
       await refreshFromRemote();
       return result;
     },
-    createUser: async (payload) => {
-      const result = await remoteCreateUser(payload);
+    inviteUser: async (payload) => {
+      const result = await remoteInviteUser(payload);
       await refreshFromRemote();
       return result;
     },

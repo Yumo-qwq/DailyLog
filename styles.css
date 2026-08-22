@@ -795,6 +795,33 @@ a {
   align-items: start;
 }
 
+.table-toolbar {
+  align-items: start;
+}
+
+.month-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.month-picker input {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+}
+
+.data-table tr.future {
+  background: #fbfcfd;
+}
+
 .table-actions {
   display: flex;
   justify-content: space-between;
@@ -1221,5 +1248,13 @@ a {
 
   .autosave-status {
     white-space: normal;
+  }
+
+  .table-toolbar {
+    align-items: stretch;
+  }
+
+  .month-picker {
+    justify-content: space-between;
   }
 }
