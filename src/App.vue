@@ -18,7 +18,6 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div>跨日锁定由数据库兜底。</div>
         <button v-if="user" class="button-ghost" type="button" @click="handleLogout">退出登录</button>
       </div>
     </aside>

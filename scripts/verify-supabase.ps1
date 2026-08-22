@@ -187,7 +187,7 @@ $result = [ordered]@{}
 
 $result.tables = [ordered]@{
   profiles = Select-Table -Table "profiles" -Select "id,username,display_name,avatar_url,role,is_active,created_at"
-  checkins = Select-Table -Table "checkins" -Select "id,user_id,date,content,study_minutes,created_at,updated_at"
+  checkins = Select-Table -Table "checkins" -Select "id,user_id,date,content,study_minutes,checked_in_at,created_at,updated_at"
   learning_columns = Select-Table -Table "learning_columns" -Select "id,user_id,name,column_order,created_at"
   checkin_entries = Select-Table -Table "checkin_entries" -Select "id,checkin_id,column_id,content,created_at,updated_at"
   checkin_images = Select-Table -Table "checkin_images" -Select "id,checkin_id,column_id,storage_path,file_name,content_type,size_bytes,created_at"

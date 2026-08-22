@@ -88,7 +88,7 @@ async function signOut(accessToken) {
 
 const tableChecks = {
   profiles: await probeTable('profiles', 'id,username,display_name,avatar_url,role,is_active,created_at'),
-  checkins: await probeTable('checkins', 'id,user_id,date,content,study_minutes,created_at,updated_at'),
+  checkins: await probeTable('checkins', 'id,user_id,date,content,study_minutes,checked_in_at,created_at,updated_at'),
   learning_columns: await probeTable('learning_columns', 'id,user_id,name,column_order,created_at'),
   checkin_entries: await probeTable('checkin_entries', 'id,checkin_id,column_id,content,created_at,updated_at'),
   checkin_images: await probeTable('checkin_images', 'id,checkin_id,column_id,storage_path,file_name,content_type,size_bytes,created_at'),

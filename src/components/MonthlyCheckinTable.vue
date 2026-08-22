@@ -12,12 +12,22 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="row.date" :class="{ today: row.isToday, future: row.isFuture }">
+        <tr
+          v-for="row in rows"
+          :key="row.date"
+          :class="{
+            today: row.isToday,
+            future: row.isFuture,
+            'checkin-done': !row.isFuture && row.checkedIn,
+            'checkin-missed': !row.isFuture && !row.checkedIn
+          }"
+        >
           <td class="date-cell">
             <strong>{{ formatDate(row.date) }}</strong>
-            <span v-if="row.isToday" class="status ok">今天</span>
-            <span v-else-if="row.isFuture" class="status muted">未到</span>
-            <span v-else class="status muted">锁定</span>
+            <span v-if="row.isFuture" class="status muted">未到</span>
+            <span v-else class="status" :class="row.checkedIn ? 'ok' : 'missed'">
+              {{ row.checkedIn ? (row.isToday ? '今日已打卡' : '已打卡') : (row.isToday ? '今日未打卡' : '未打卡') }}
+            </span>
           </td>
 
           <td v-for="column in columns" :key="column.id" class="learning-cell">

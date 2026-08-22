@@ -2,7 +2,7 @@ import { computed, reactive, ref } from 'vue';
 import { clearDraft as clearDraftStorage, loadDraft, saveDraft as saveDraftStorage, getLearningColumns, getCurrentUser, getProfile, globalStats, isAdmin, metricsForUser, recentCheckins, findTodayCheckin } from './store.js';
 import { hasSupabaseConfig } from './lib/supabase.js';
 import { getSession, onAuthStateChange, signInWithEmail, signOut } from './services/auth.js';
-import { createLearningColumn as remoteCreateLearningColumn, loadRemoteState, renameLearningColumn as remoteRenameLearningColumn, saveTodayCheckin, updateProfile as remoteUpdateProfile } from './services/checkins.js';
+import { createLearningColumn as remoteCreateLearningColumn, loadRemoteState, markTodayCheckin as remoteMarkTodayCheckin, renameLearningColumn as remoteRenameLearningColumn, saveTodayCheckin, updateProfile as remoteUpdateProfile } from './services/checkins.js';
 import { inviteUser as remoteInviteUser, setUserActive as remoteSetUserActive } from './services/users.js';
 import { todayKey } from './utils.js';
 
@@ -167,6 +167,12 @@ export function useDailyLog() {
         logs: payload.logs || [],
         studyMinutes: payload.study_minutes
       });
+      await refreshFromRemote();
+      return result;
+    },
+    markTodayCheckin: async (userId) => {
+      requireUser(userId);
+      const result = await remoteMarkTodayCheckin();
       await refreshFromRemote();
       return result;
     },

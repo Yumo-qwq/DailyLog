@@ -126,10 +126,18 @@ export async function createTodayCheckinIfNeeded(userId) {
   return await ensureTodayCheckinRecord(userId);
 }
 
+export async function markTodayCheckin() {
+  ensureSupabase();
+  const { data, error } = await supabase.rpc('mark_today_checkin');
+  if (error) throw error;
+  return data;
+}
+
 export async function saveTodayCheckin({ userId, columns = [], entries = {}, logs = [], studyMinutes = null }) {
   ensureSupabase();
   const currentDate = todayKey();
   const checkin = await ensureTodayCheckinRecord(userId);
+  const savedAt = new Date().toISOString();
   const existingEntryRows = await fetchTable(supabase.from('checkin_entries').select('*').eq('checkin_id', checkin.id));
   const existingEntriesByColumn = new Map(existingEntryRows.map((row) => [row.column_id, row]));
 
@@ -168,7 +176,7 @@ export async function saveTodayCheckin({ userId, columns = [], entries = {}, log
         content,
         images: syncImages,
         created_at: previousEntry?.created_at || checkin.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: savedAt
       };
     }
   }
@@ -183,7 +191,8 @@ export async function saveTodayCheckin({ userId, columns = [], entries = {}, log
     .update({
       content: summary,
       study_minutes: nextStudyMinutes,
-      updated_at: new Date().toISOString()
+      checked_in_at: checkin.checked_in_at || savedAt,
+      updated_at: savedAt
     })
     .eq('id', checkin.id);
   if (checkinUpdateError) throw checkinUpdateError;

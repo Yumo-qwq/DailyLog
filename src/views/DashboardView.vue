@@ -2,6 +2,24 @@
   <div class="dashboard-layout">
     <section class="section">
       <div class="section-inner">
+        <div class="daily-checkin-bar" :class="todayCheckedIn ? 'complete' : 'missing'">
+          <div class="daily-checkin-copy">
+            <span class="daily-checkin-label">今日打卡</span>
+            <strong>{{ todayCheckedIn ? '今天已完成打卡' : '今天还没有打卡' }}</strong>
+            <span>连续打卡 {{ stats.streak }} 天</span>
+          </div>
+          <button
+            v-if="!todayCheckedIn"
+            class="button"
+            type="button"
+            :disabled="checkingIn"
+            @click="checkInToday"
+          >
+            {{ checkingIn ? '打卡中...' : '立即打卡' }}
+          </button>
+          <span v-else class="status ok">已打卡</span>
+        </div>
+
         <div class="section-title table-title">
           <div>
             <h2>每日表格</h2>
@@ -39,11 +57,16 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in rows" :key="row.date" :class="{ today: row.isToday }">
+              <tr
+                v-for="row in rows"
+                :key="row.date"
+                :class="{ today: row.isToday, 'checkin-done': row.checkedIn, 'checkin-missed': !row.checkedIn }"
+              >
                 <td class="date-cell">
                   <strong>{{ formatDate(row.date) }}</strong>
-                  <span v-if="row.isToday" class="status ok">今天</span>
-                  <span v-else class="status muted">锁定</span>
+                  <span class="status" :class="row.checkedIn ? 'ok' : 'missed'">
+                    {{ row.checkedIn ? (row.isToday ? '今日已打卡' : '已打卡') : (row.isToday ? '今日未打卡' : '未打卡') }}
+                  </span>
                 </td>
 
                 <td v-for="column in columns" :key="column.id" class="learning-cell">
@@ -139,7 +162,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import ImageLightbox from '../components/ImageLightbox.vue';
 import { useDailyLog } from '../state.js';
-import { compressImage, createId, formatClock, formatDate, shiftDate, todayKey } from '../utils.js';
+import { compressImage, createId, formatClock, formatDate, isCheckinComplete, shiftDate, todayKey } from '../utils.js';
 import { notify } from '../toast.js';
 
 const {
@@ -149,6 +172,7 @@ const {
   metricsForUser,
   findTodayCheckin,
   createOrUpdateTodayCheckin,
+  markTodayCheckin,
   getLearningColumns,
   createLearningColumn,
   renameLearningColumn,
@@ -160,6 +184,7 @@ const today = todayKey();
 const columns = computed(() => getLearningColumns(user.value?.id));
 const todayRecord = computed(() => findTodayCheckin(user.value?.id, today));
 const stats = computed(() => metricsForUser(user.value?.id));
+const todayCheckedIn = computed(() => isCheckinComplete(todayRecord.value));
 
 const cellDraft = reactive({});
 const newColumnName = ref('');
@@ -167,6 +192,7 @@ const renamingId = ref('');
 const renameValue = ref('');
 const saveStatus = ref('等待修改');
 const previewImage = ref(null);
+const checkingIn = ref(false);
 
 function cloneImage(image) {
   if (!image) return null;
@@ -394,10 +420,24 @@ const rows = computed(() => {
     return {
       date,
       isToday: date === today,
+      checkedIn: isCheckinComplete(record),
       cells
     };
   });
 });
+
+async function checkInToday() {
+  if (!user.value || checkingIn.value || todayCheckedIn.value) return;
+  checkingIn.value = true;
+  try {
+    await markTodayCheckin(user.value.id);
+    notify('success', '今日打卡成功');
+  } catch (error) {
+    notify('error', error.message || '打卡失败');
+  } finally {
+    checkingIn.value = false;
+  }
+}
 
 async function addColumn() {
   try {

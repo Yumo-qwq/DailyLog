@@ -1,4 +1,4 @@
-import { buildHeatmap, computeStreak, createId, todayKey } from './utils.js';
+import { buildHeatmap, computeStreak, createId, isCheckinComplete, todayKey } from './utils.js';
 
 const KEY = 'dailylog-state-v1';
 const DRAFT_KEY = 'dailylog-draft-v1';
@@ -308,6 +308,7 @@ function seedState() {
         content: buildContentSummary(entries, learningColumns.filter((item) => item.user_id === user.id)),
         entries,
         study_minutes: minutes[(day + index) % minutes.length],
+        checked_in_at: updatedAt,
         created_at: createdAt,
         updated_at: updatedAt,
         images: flattenImagesFromEntries(entries)
@@ -511,7 +512,7 @@ export function getCellEntry(record, columnId) {
 }
 
 export function metricsForUser(state, userId, currentDate = todayKey()) {
-  const userCheckins = state.checkins.filter((item) => item.user_id === userId);
+  const userCheckins = state.checkins.filter((item) => item.user_id === userId && isCheckinComplete(item));
   const today = userCheckins.find((item) => item.date === currentDate) || null;
   const streak = computeStreak(state.checkins, userId, currentDate);
   return {
@@ -524,8 +525,9 @@ export function metricsForUser(state, userId, currentDate = todayKey()) {
 
 export function globalStats(state, currentDate = todayKey()) {
   const users = state.users.filter((item) => item.is_active);
-  const totalCheckins = state.checkins.length;
-  const todayCount = state.checkins.filter((item) => item.date === currentDate).length;
+  const completedCheckins = state.checkins.filter((item) => isCheckinComplete(item));
+  const totalCheckins = completedCheckins.length;
+  const todayCount = completedCheckins.filter((item) => item.date === currentDate).length;
   const streaks = users.map((item) => computeStreak(state.checkins, item.id, currentDate));
   return {
     totalUsers: users.length,

@@ -95,7 +95,7 @@ import ImageLightbox from '../components/ImageLightbox.vue';
 import MonthlyCheckinTable from '../components/MonthlyCheckinTable.vue';
 import { useDailyLog } from '../state.js';
 import { normalizeCellRecord } from '../services/model.js';
-import { buildHeatmap, currentMonthKey, formatDateTime, initials, monthDates, todayKey } from '../utils.js';
+import { buildHeatmap, currentMonthKey, formatDateTime, initials, isCheckinComplete, monthDates, todayKey } from '../utils.js';
 
 const { state, currentUser, getLearningColumns, metricsForUser } = useDailyLog();
 const today = todayKey();
@@ -134,6 +134,7 @@ const memberRows = computed(() => {
       date,
       isToday: date === today,
       isFuture: date > today,
+      checkedIn: isCheckinComplete(record),
       cells
     };
   });

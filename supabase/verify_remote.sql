@@ -1,6 +1,6 @@
 -- Read-only verification for DailyLog remote Supabase schema.
 -- Run this in Supabase SQL Editor after 001_init.sql, 002_profile_avatars.sql,
--- and 003_username_auth.sql succeed.
+-- 003_username_auth.sql, and 004_daily_checkin.sql succeed.
 
 select
   'tables' as section,
@@ -124,6 +124,7 @@ where routine_schema = 'public'
     'is_active_member',
     'is_admin',
     'member_profiles',
-    'normalize_username'
+    'normalize_username',
+    'mark_today_checkin'
   )
 order by routine_name;

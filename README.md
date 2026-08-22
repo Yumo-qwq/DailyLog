@@ -36,6 +36,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=
 supabase/migrations/001_init.sql
 supabase/migrations/002_profile_avatars.sql
 supabase/migrations/003_username_auth.sql
+supabase/migrations/004_daily_checkin.sql
 ```
 
 这一步必须通过 Supabase SQL Editor、已登录的 Supabase CLI，或数据库连接串执行。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能用于前端登录和受 RLS 保护的数据访问，不能创建表、创建 RLS policy 或初始化 Storage bucket。
@@ -110,6 +111,7 @@ supabase/verify_remote.sql
 - 前端使用 Vue 3 + Vite。
 - 主页面是“每日一行表格”，学习主题是自定义列，今天这一行的格子可编辑，历史行只读。
 - 可以新增列，例如“数据结构”，新增后会显示在表头，旧日期默认显示 `-`。
-- 每个格子都支持单独写字、上传图片；文字停顿后自动记录，图片增删会立刻进入修改日志。
+- 每个格子都支持单独写字、上传图片；修改先保存在本地草稿，点击保存后才写入数据库并生成日志。
+- 每日表格顶部可以独立完成今日打卡；保存当天学习表格也会自动打卡。打卡日标绿，漏打卡日标红，连续天数遇到漏打卡会归零。
 - 热力图已经缩小成辅助块。
 - `supabase/migrations/001_init.sql` 保留了数据库、RLS、动态学习列、单元格内容、图片元数据表和 Storage policy 的起始方案。

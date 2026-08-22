@@ -78,8 +78,20 @@ export function shiftDate(dateKey, delta, timeZone = ZONE) {
   return formatDateKey(date, timeZone);
 }
 
+export function isCheckinComplete(checkin) {
+  if (!checkin) return false;
+  if (Object.prototype.hasOwnProperty.call(checkin, 'checked_in_at')) {
+    return Boolean(checkin.checked_in_at);
+  }
+  return true;
+}
+
 export function computeStreak(checkins, userId, currentDate = todayKey()) {
-  const dates = new Set(checkins.filter((item) => item.user_id === userId).map((item) => item.date));
+  const dates = new Set(
+    checkins
+      .filter((item) => item.user_id === userId && isCheckinComplete(item))
+      .map((item) => item.date)
+  );
   let streak = 0;
   let cursor = currentDate;
   while (dates.has(cursor)) {
@@ -92,7 +104,7 @@ export function computeStreak(checkins, userId, currentDate = todayKey()) {
 export function buildHeatmap(checkins, userId, days = 84, currentDate = todayKey()) {
   const countByDate = new Map();
   for (const item of checkins) {
-    if (item.user_id !== userId) continue;
+    if (item.user_id !== userId || !isCheckinComplete(item)) continue;
     countByDate.set(item.date, (countByDate.get(item.date) || 0) + 1);
   }
 

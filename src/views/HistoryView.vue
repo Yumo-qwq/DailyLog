@@ -24,7 +24,7 @@ import ImageLightbox from '../components/ImageLightbox.vue';
 import MonthlyCheckinTable from '../components/MonthlyCheckinTable.vue';
 import { useDailyLog } from '../state.js';
 import { normalizeCellRecord } from '../services/model.js';
-import { currentMonthKey, monthDates, todayKey } from '../utils.js';
+import { currentMonthKey, isCheckinComplete, monthDates, todayKey } from '../utils.js';
 
 const { state, currentUser, getLearningColumns } = useDailyLog();
 const today = todayKey();
@@ -45,6 +45,7 @@ const historyRows = computed(() =>
       date,
       isToday: date === today,
       isFuture: date > today,
+      checkedIn: isCheckinComplete(record),
       cells
     };
   })
