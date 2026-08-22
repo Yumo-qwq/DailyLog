@@ -31,6 +31,55 @@ async function fetchTable(query) {
   return data || [];
 }
 
+async function ensureOwnDefaultLearningColumns(userId, columnRows) {
+  if (columnRows.some((column) => column.user_id === userId)) return columnRows;
+
+  const defaults = ['英语', '组成原理', '线性代数'].map((name, index) => ({
+    user_id: userId,
+    name,
+    column_order: index + 1
+  }));
+  const { error } = await supabase
+    .from('learning_columns')
+    .upsert(defaults, { onConflict: 'user_id,name', ignoreDuplicates: true });
+  if (error) throw error;
+
+  return await fetchTable(
+    supabase
+      .from('learning_columns')
+      .select('*')
+      .order('user_id', { ascending: true })
+      .order('column_order', { ascending: true })
+      .order('created_at', { ascending: true })
+  );
+}
+
+function restoreProfilesMissingFromLegacyRpc(profileRows, columnRows, checkinRows, logRows) {
+  const result = [...profileRows];
+  const visibleIds = new Set(result.map((profile) => profile.id));
+  const referencedIds = new Set([
+    ...columnRows.map((column) => column.user_id),
+    ...checkinRows.map((checkin) => checkin.user_id),
+    ...logRows.map((log) => log.user_id)
+  ].filter(Boolean));
+
+  for (const userId of referencedIds) {
+    if (visibleIds.has(userId)) continue;
+    const displayName = logRows.find((log) => log.user_id === userId && log.user_name)?.user_name || '管理员';
+    result.push({
+      id: userId,
+      display_name: displayName,
+      avatar_url: '',
+      role: 'admin',
+      is_active: true,
+      created_at: ''
+    });
+    visibleIds.add(userId);
+  }
+
+  return result;
+}
+
 export async function loadRemoteState() {
   ensureSupabase();
 
@@ -52,7 +101,7 @@ export async function loadRemoteState() {
     ? supabase.from('profiles').select('id, username, display_name, avatar_url, role, is_active, created_at').order('created_at', { ascending: true })
     : supabase.rpc('member_profiles');
 
-  const [visibleProfileRows, columnRows, checkinRows, entryRows, imageRows, logRows] = await Promise.all([
+  let [visibleProfileRows, columnRows, checkinRows, entryRows, imageRows, logRows] = await Promise.all([
     fetchTable(profileQuery),
     fetchTable(supabase.from('learning_columns').select('*').order('user_id', { ascending: true }).order('column_order', { ascending: true }).order('created_at', { ascending: true })),
     fetchTable(supabase.from('checkins').select('*').order('date', { ascending: false }).order('updated_at', { ascending: false })),
@@ -61,9 +110,14 @@ export async function loadRemoteState() {
     fetchTable(supabase.from('checkin_change_logs').select('*').order('created_at', { ascending: false }))
   ]);
 
-  const profileRows = currentProfile.role === 'admin'
+  columnRows = await ensureOwnDefaultLearningColumns(sessionUserId, columnRows);
+
+  let profileRows = currentProfile.role === 'admin'
     ? visibleProfileRows
     : visibleProfileRows.map((profile) => (profile.id === sessionUserId ? { ...profile, username: currentProfile.username } : profile));
+  if (currentProfile.role !== 'admin') {
+    profileRows = restoreProfilesMissingFromLegacyRpc(profileRows, columnRows, checkinRows, logRows);
+  }
 
   const [signedUrls, profileAvatars] = await Promise.all([
     resolveSignedImageUrls(imageRows),
