@@ -2,9 +2,9 @@
   <section class="section login-section">
     <div class="section-inner login-grid">
       <div class="login-copy">
-        <div class="status ok">DailyLog · 激活账号</div>
-        <h2>设置你的登录密码。</h2>
-        <p class="muted">密码只由你本人设置，管理员和项目开发者无法查看。</p>
+        <AppIcon name="lock" class="login-book" />
+        <h2>新的一页，<br />从这里开始。</h2>
+        <p class="muted">设置你自己的登录密码，开启学习手账。密码只由你本人保管。</p>
       </div>
 
       <form class="login-form" @submit.prevent="submit">
@@ -20,7 +20,7 @@
           <span>确认密码</span>
           <input v-model="confirmation" type="password" autocomplete="new-password" minlength="6" required />
         </label>
-        <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
         <button class="button" type="submit" :disabled="loading || !sessionReady">
           {{ loading ? '保存中...' : '保存密码并进入 DailyLog' }}
         </button>
@@ -30,6 +30,7 @@
 </template>
 
 <script setup>
+import AppIcon from '../components/AppIcon.vue';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { getSession, updatePassword } from '../services/auth.js';

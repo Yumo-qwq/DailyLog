@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-25T00:00:00+08:00",
+  "title": "Design System: DailyLog",
+  "extensions": {
+    "colorMeta": {
+      "paper": {"role":"neutral","displayName":"Warm Paper"},
+      "surface": {"role":"neutral","displayName":"Work Sheet"},
+      "primary": {"role":"primary","displayName":"Study Green","tonalRamp":["#14291d","#1e3c2c","#264e3c","#356650","#648776","#9fb8a6","#d6e3d7","#edf4ec"]}
+    },
+    "typographyMeta": {
+      "title": {"displayName":"Page title","purpose":"Current workspace section"},
+      "body": {"displayName":"Body","purpose":"Records and controls"}
+    },
+    "shadows": [
+      {"name":"toast","value":"0 8px 28px rgb(40 56 42 / 10%)","purpose":"Transient status feedback"}
+    ],
+    "motion": [
+      {"name":"state","value":"160ms ease","purpose":"Button and navigation state transitions"}
+    ],
+    "breakpoints": [
+      {"name":"navigation","value":"920px"},
+      {"name":"mobile","value":"640px"}
+    ]
+  },
+  "components": [
+    {"name":"Primary button","kind":"button","refersTo":"button-primary","description":"Save and primary actions","html":"<button class=\"ds-primary\">保存今日</button>","css":".ds-primary{background:#356650;color:#fff;border:0;border-radius:7px;padding:8px 16px;min-height:40px;font:600 13px 'LXGW WenKai',sans-serif;cursor:pointer;transition:background 160ms ease}.ds-primary:hover{background:#264e3c}.ds-primary:focus-visible{outline:2px solid #356650;outline-offset:3px}"},
+    {"name":"Secondary button","kind":"button","refersTo":"button-secondary","description":"Add and supporting actions","html":"<button class=\"ds-secondary\">新增列</button>","css":".ds-secondary{background:#e7eee4;color:#356650;border:1px solid #cad7c4;border-radius:7px;padding:8px 16px;min-height:40px;font:600 13px 'LXGW WenKai',sans-serif;cursor:pointer}.ds-secondary:hover{background:#dae7d5}.ds-secondary:focus-visible{outline:2px solid #356650;outline-offset:3px}"},
+    {"name":"Text field","kind":"input","description":"Names and form values","html":"<input class=\"ds-input\" placeholder=\"学习主题\">","css":".ds-input{background:#fffefa;color:#293d35;border:1px solid #cfd3c6;border-radius:7px;padding:10px 12px;font:14px 'LXGW WenKai',sans-serif}.ds-input:focus-visible{border-color:#356650;outline:2px solid #356650;outline-offset:2px}"},
+    {"name":"Active navigation","kind":"nav","description":"Current route","html":"<a class=\"ds-nav\" href=\"#\">每日表格</a>","css":".ds-nav{display:inline-flex;align-items:center;min-height:44px;padding:10px 14px;border-radius:8px;background:#dce7d7;color:#294e38;text-decoration:none;font:600 13px 'LXGW WenKai',sans-serif}.ds-nav:hover{background:#d1e1ca}.ds-nav:focus-visible{outline:2px solid #356650;outline-offset:3px}"},
+    {"name":"Checked-in state","kind":"chip","description":"Completed daily record","html":"<span class=\"ds-chip\">已打卡</span>","css":".ds-chip{display:inline-block;background:#e3eddf;color:#32664b;border-radius:5px;padding:3px 8px;font:500 11px 'LXGW WenKai',sans-serif}"},
+    {"name":"Work panel","kind":"card","refersTo":"panel","description":"Main record surface","html":"<section class=\"ds-panel\">我的学习手账</section>","css":".ds-panel{background:#fffefa;color:#293d35;border:1px solid #dedfd5;border-radius:14px;padding:24px;font:600 18px 'LXGW WenKai',sans-serif}"}
+  ],
+  "narrative": {
+    "northStar": "数字学习手账",
+    "overview": "暖纸色与墨绿文字为每天的长时间记录提供安静背景。日期、内容和保存状态优先，统一的表格与表单语言覆盖所有页面。",
+    "keyCharacteristics": ["表格优先", "日期索引", "克制的状态色", "完整移动导航"],
+    "rules": [{"name":"Daily table first","body":"Keep the daily learning table full width and its date column visible during local horizontal scroll.","section":"layout"}],
+    "dos": ["让今日编辑与历史只读均有文字状态", "在小屏保留顶部保存按钮"],
+    "donts": ["不用装饰性大卡片挤占表格", "不用入场动画拖慢操作"]
+  }
+}

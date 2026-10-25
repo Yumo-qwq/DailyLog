@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router';
 import LoginView from './views/LoginView.vue';
 import DashboardView from './views/DashboardView.vue';
 import HistoryView from './views/HistoryView.vue';
@@ -20,7 +20,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: import.meta.env.MODE === 'android' ? createWebHashHistory('/assets/index.html') : createWebHistory(),
   routes
 });
 

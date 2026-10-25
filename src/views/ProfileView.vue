@@ -1,8 +1,8 @@
 <template>
-  <section class="section">
+  <section class="section profile-section">
     <div class="section-inner">
       <div class="section-title">
-        <h2>个人资料</h2>
+        <div><h2>你的学习名片</h2><p class="muted">让学习伙伴更容易认出你。</p></div>
       </div>
 
       <form class="profile-form" @submit.prevent="save">
@@ -30,12 +30,12 @@
                 <button class="button-secondary" type="button" @click="chooseAvatar">上传头像</button>
                 <button v-if="hasAvatar" class="button-ghost" type="button" @click="clearAvatar">移除头像</button>
               </div>
-              <p class="muted">不需要填写地址，保存时会上传到私有 Storage。</p>
+              <p class="muted">选择图片后，点击“保存资料”使头像生效。</p>
             </div>
           </div>
         </div>
 
-        <button class="button" type="submit">保存</button>
+        <button class="button" type="submit">保存资料</button>
       </form>
     </div>
   </section>

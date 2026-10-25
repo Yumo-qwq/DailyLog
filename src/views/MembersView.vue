@@ -4,12 +4,13 @@
       <div class="section-inner">
         <div class="section-title">
           <div>
-            <h2>成员</h2>
+            <h2>同行的学习伙伴</h2>
             <p class="muted">这里可以查看每个人的热力图、修改日志和完整表格。</p>
           </div>
           <span class="status muted">{{ members.length }} 人</span>
         </div>
 
+        <div v-if="!members.length" class="empty">暂无可显示的学习成员。</div>
         <div class="member-grid">
           <button
             v-for="member in members"
@@ -17,6 +18,7 @@
             type="button"
             class="member-card"
             :class="{ active: member.id === selectedMemberId }"
+            :aria-pressed="member.id === selectedMemberId"
             @click="selectedMemberId = member.id"
           >
             <div class="member-card-head">
@@ -26,7 +28,7 @@
               </div>
               <div class="member-card-title">
                 <strong>{{ member.display_name }}</strong>
-                <span class="muted">{{ member.role }}</span>
+                <span class="muted">{{ member.role === 'admin' ? '管理员' : '学习成员' }}</span>
               </div>
             </div>
 
@@ -100,7 +102,7 @@
               <span>{{ log.user_name || selectedMember?.display_name || '未知成员' }}</span>
             </div>
           </div>
-          <div v-if="!selectedLogs.length" class="empty">还没有日志。</div>
+          <div v-if="!selectedLogs.length" class="empty">这个月还没有修改日志。成员保存学习记录后，会在这里留下足迹。</div>
         </div>
       </div>
     </section>

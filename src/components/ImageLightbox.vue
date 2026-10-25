@@ -1,20 +1,24 @@
 <template>
+  <Teleport to="body">
   <div
     v-if="image?.src"
     ref="frame"
     class="image-lightbox"
     role="dialog"
     aria-modal="true"
+    :aria-label="image.name || '图片预览'"
+    @keydown.tab.prevent="closeButton?.focus()"
     tabindex="-1"
     @click.self="$emit('close')"
     @keydown.esc="$emit('close')"
   >
-    <button class="image-lightbox-close" type="button" aria-label="关闭大图" @click="$emit('close')">×</button>
+    <button ref="closeButton" class="image-lightbox-close" type="button" aria-label="关闭大图" @click="$emit('close')">×</button>
     <div class="image-lightbox-stage">
       <img class="image-lightbox-img" :src="image.src" :alt="image.alt || '图片'" />
     </div>
     <div v-if="image.name" class="image-lightbox-caption">{{ image.name }}</div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -30,6 +34,8 @@ const props = defineProps({
 defineEmits(['close']);
 
 const frame = ref(null);
+const closeButton = ref(null);
+let previousFocus = null;
 const previousOverflow = ref('');
 
 watch(
@@ -37,12 +43,14 @@ watch(
   async (src) => {
     if (!src) {
       document.body.style.overflow = previousOverflow.value;
+      previousFocus?.focus();
       return;
     }
+    previousFocus = document.activeElement;
     previousOverflow.value = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     await nextTick();
-    frame.value?.focus();
+    closeButton.value?.focus();
   }
 );
 

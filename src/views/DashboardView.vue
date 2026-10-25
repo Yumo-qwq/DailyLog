@@ -1,10 +1,9 @@
 <template>
   <div class="dashboard-layout">
-    <section class="section">
-      <div class="section-inner">
+    <section class="day-overview" aria-label="今日学习概览">
         <div class="daily-checkin-bar" :class="todayCheckedIn ? 'complete' : 'missing'">
           <div class="daily-checkin-copy">
-            <span class="daily-checkin-label">今日打卡</span>
+            <span class="daily-checkin-label">{{ formatDate(today) }}</span>
             <strong>{{ todayCheckedIn ? '今天已完成打卡' : '今天还没有打卡' }}</strong>
             <span>连续打卡 {{ stats.streak }} 天</span>
           </div>
@@ -20,22 +19,33 @@
           <span v-else class="status ok">已打卡</span>
         </div>
 
+      <dl class="study-stats">
+        <div><dt>学习主题</dt><dd>{{ columns.length }}<span> 项</span></dd></div>
+        <div><dt>连续打卡</dt><dd>{{ stats.streak }}<span> 天</span></dd></div>
+        <div><dt>累计打卡</dt><dd>{{ stats.total }}<span> 天</span></dd></div>
+      </dl>
+    </section>
+
+    <section class="section">
+      <div class="section-inner">
         <div class="section-title table-title">
           <div>
-            <h2>每日表格</h2>
-            <p class="muted">只写自己的今日表格。修改先留在本地草稿，点击保存后才会写入数据库并生成日志。</p>
+            <h2>我的学习手账</h2>
+            <p class="muted">今天可以编辑，历史记录只读。文字与图片先存为本地草稿，点击保存后同步。</p>
           </div>
+          <button class="button" type="button" :disabled="saving" @click="saveToday">{{ saving ? '保存中…' : '保存今日' }}</button>
         </div>
 
         <div class="table-actions">
-          <div class="autosave-status">{{ saveStatus }}</div>
+          <div class="autosave-status" role="status"><span class="save-dot" :class="{ pending: saveStatus === '有未保存修改' }"></span>{{ saveStatus }}</div>
           <form class="add-column-form" @submit.prevent="addColumn">
-            <input v-model="newColumnName" placeholder="新列名，例如：数据结构" />
-            <button class="button" type="submit">新增列</button>
+            <input v-model="newColumnName" aria-label="新学习主题名称" placeholder="添加学习主题，如：数据结构" required />
+            <button class="button-secondary" type="submit">新增列</button>
           </form>
         </div>
 
-        <div class="table-wrap sticky-table-wrap">
+        <div v-if="!columns.length" class="empty">从一个学习主题开始：在上方输入主题名称并点击“新增列”，就能记录今天的文字与图片。</div>
+        <div class="table-wrap sticky-table-wrap desktop-learning-table" tabindex="0" role="region" aria-label="每日学习表格，可横向滚动">
           <table class="data-table learning-table">
             <thead>
               <tr>
@@ -46,6 +56,7 @@
                       v-if="renamingId === column.id"
                       v-model="renameValue"
                       class="column-name-input"
+                      aria-label="修改学习主题名称"
                       @keydown.enter.prevent="saveRename(column)"
                       @blur="saveRename(column)"
                     />
@@ -97,6 +108,7 @@
                       <textarea
                         v-model="cellDraft[column.id].content"
                         class="cell-editor"
+                        :aria-label="`${column.name} 今日学习内容`"
                         :placeholder="`${column.name} 学了什么`"
                         @input="onTextInput(column.id)"
                       ></textarea>
@@ -135,47 +147,79 @@
                         <button class="thumb-preview" type="button" @click="openImage(image)">
                           <img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" />
                         </button>
-                        <button type="button" class="cell-thumb-remove" @click="removeDraftImage(column.id, image.id)">×</button>
+                        <button type="button" class="cell-thumb-remove" :aria-label="`移除${image.name || '图片'}`" @click="removeDraftImage(column.id, image.id)">×</button>
                       </div>
                     </div>
                   </div>
                 </td>
 
                 <td class="action-cell">
-                  <button v-if="row.isToday" class="button" type="button" @click="saveToday">保存</button>
+                  <button v-if="row.isToday" class="button" type="button" :disabled="saving" @click="saveToday">{{ saving ? '保存中…' : '保存今日' }}</button>
                   <span v-else class="muted">只读</span>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+
+        <div class="mobile-learning-journal">
+          <div class="mobile-journal-heading">
+            <div>
+              <strong>今天 · {{ formatDate(today) }}</strong>
+              <span>按主题记录，完成后保存今日</span>
+            </div>
+            <span class="status" :class="todayCheckedIn ? 'ok' : 'missed'">{{ todayCheckedIn ? '已打卡' : '未打卡' }}</span>
+          </div>
+
+          <div v-for="(column, columnIndex) in columns" :key="column.id" class="mobile-topic">
+            <div class="mobile-topic-heading">
+              <input
+                v-if="renamingId === column.id"
+                v-model="renameValue"
+                class="column-name-input"
+                aria-label="修改学习主题名称"
+                @keydown.enter.prevent="saveRename(column)"
+                @blur="saveRename(column)"
+              />
+              <h3 v-else>{{ column.name }}</h3>
+              <span class="cell-time">{{ cellTime(rows[0], column.id) }}</span>
+            </div>
+            <textarea
+              v-model="cellDraft[column.id].content"
+              class="cell-editor"
+              :aria-label="`${column.name} 今日学习内容`"
+              :placeholder="`${column.name} 学了什么`"
+              @input="onTextInput(column.id)"
+            ></textarea>
+            <div class="mobile-topic-tools">
+              <label class="cell-upload-button">
+                上传图片
+                <input type="file" accept="image/*" multiple @change="onPickImages(column.id, $event)" />
+              </label>
+              <button v-if="cellDraft[column.id].images.length" class="tiny-button" type="button" @click="removeAllImages(column.id)">清空图</button>
+              <button v-if="renamingId !== column.id" class="tiny-button" type="button" @click="startRename(column)">改名</button>
+              <button class="column-move-button" type="button" :aria-label="`${column.name}向前移动`" :disabled="columnIndex === 0 || movingColumns" @click="moveColumn(columnIndex, -1)">↑</button>
+              <button class="column-move-button" type="button" :aria-label="`${column.name}向后移动`" :disabled="columnIndex === columns.length - 1 || movingColumns" @click="moveColumn(columnIndex, 1)">↓</button>
+            </div>
+            <div v-if="cellDraft[column.id].images.length" class="cell-thumb-grid">
+              <div v-for="image in cellDraft[column.id].images" :key="image.id" class="cell-thumb">
+                <button class="thumb-preview" type="button" @click="openImage(image)"><img :src="image.previewUrl || image.dataUrl" :alt="image.name || '图片'" /></button>
+                <button type="button" class="cell-thumb-remove" :aria-label="`移除${image.name || '图片'}`" @click="removeDraftImage(column.id, image.id)">×</button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="columns.length" class="mobile-save-row">
+            <span class="autosave-status"><span class="save-dot" :class="{ pending: saveStatus === '有未保存修改' }"></span>{{ saveStatus }}</span>
+            <button class="button" type="button" :disabled="saving" @click="saveToday">{{ saving ? '保存中…' : '保存今日' }}</button>
+          </div>
+
+          <div class="mobile-history-heading"><h3>最近记录</h3><span>过去 11 天</span></div>
+          <MobileCheckinJournal :rows="rows.slice(1)" :columns="columns" empty-message="暂无最近记录。" @preview-image="openImage" />
+        </div>
       </div>
     </section>
 
-    <section class="section side-panel">
-      <div class="section-inner">
-        <div class="section-title">
-          <h2>概览</h2>
-        </div>
-        <div class="metric-list">
-          <div class="metric">
-            <div class="metric-label">学习列</div>
-            <div class="metric-value">{{ columns.length }}</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">连续</div>
-            <div class="metric-value">{{ stats.streak }}</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">总计</div>
-            <div class="metric-value">{{ stats.total }}</div>
-          </div>
-        </div>
-        <div class="empty" style="margin-top: 14px;">
-          热力图、日志和其他成员的表格在“成员”页查看。
-        </div>
-      </div>
-    </section>
     <ImageLightbox :image="previewImage" @close="previewImage = null" />
   </div>
 </template>
@@ -183,6 +227,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
 import ImageLightbox from '../components/ImageLightbox.vue';
+import MobileCheckinJournal from '../components/MobileCheckinJournal.vue';
 import { useDailyLog } from '../state.js';
 import { compressImage, createId, formatClock, formatDate, isCheckinComplete, shiftDate, todayKey } from '../utils.js';
 import { notify } from '../toast.js';
@@ -216,6 +261,7 @@ const renameValue = ref('');
 const saveStatus = ref('等待修改');
 const previewImage = ref(null);
 const checkingIn = ref(false);
+const saving = ref(false);
 const movingColumns = ref(false);
 
 function cloneImage(image) {
@@ -610,7 +656,7 @@ function openImage(image) {
 }
 
 async function saveToday() {
-  if (!user.value) return;
+  if (!user.value || saving.value) return;
   const previousEntries = todayRecord.value?.entries || {};
   const checkinId = todayRecord.value?.id || createId();
   const timestamp = new Date().toISOString();
@@ -650,6 +696,7 @@ async function saveToday() {
     return;
   }
 
+  saving.value = true;
   try {
     await createOrUpdateTodayCheckin(user.value.id, {
       id: checkinId,
@@ -664,6 +711,8 @@ async function saveToday() {
   } catch (error) {
     saveStatus.value = '保存失败';
     notify('error', error.message || '保存失败');
+  } finally {
+    saving.value = false;
   }
 }
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <div class="table-wrap sticky-table-wrap">
+  <div class="table-wrap sticky-table-wrap desktop-learning-table" tabindex="0" role="region" aria-label="月度学习记录，可横向滚动">
     <table class="data-table learning-table member-table">
       <thead>
         <tr>
@@ -59,9 +59,11 @@
       </tbody>
     </table>
   </div>
+  <MobileCheckinJournal :rows="rows" :columns="columns" @preview-image="$emit('preview-image', $event)" />
 </template>
 
 <script setup>
+import MobileCheckinJournal from './MobileCheckinJournal.vue';
 import { formatClock, formatDate } from '../utils.js';
 
 defineProps({

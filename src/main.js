@@ -1,6 +1,8 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router.js';
+import 'lxgw-wenkai-webfont/lxgwwenkai-regular.css';
+import 'lxgw-wenkai-webfont/lxgwwenkai-bold.css';
 import '../styles.css';
 
 function purgeLegacyPasswords() {

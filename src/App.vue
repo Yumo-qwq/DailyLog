@@ -1,68 +1,64 @@
 <template>
-  <div class="app-shell">
+  <a class="skip-link" href="#main-content">跳转到主要内容</a>
+  <div class="app-shell" :class="{ 'auth-shell': isAuth }">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true">D</div>
-        <div>
-          <div class="brand-title">DailyLog</div>
-          <div class="brand-subtitle">每日学习记录</div>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <RouterLink class="nav-item" to="/home">每日表格</RouterLink>
-        <RouterLink class="nav-item" to="/history">历史记录</RouterLink>
-        <RouterLink class="nav-item" to="/members">成员</RouterLink>
-        <RouterLink class="nav-item" to="/profile">个人资料</RouterLink>
-        <RouterLink v-if="user?.role === 'admin'" class="nav-item" to="/admin">管理员</RouterLink>
+      <RouterLink class="brand" :to="user ? '/home' : '/login'" aria-label="DailyLog 首页">
+        <div class="brand-mark"><AppIcon name="book" /></div>
+        <div><div class="brand-title">DailyLog<span class="brand-dot">.</span></div><div class="brand-subtitle">每天一页，积累成章</div></div>
+      </RouterLink>
+      <nav v-if="!isAuth" class="nav" aria-label="主导航">
+        <RouterLink v-for="item in navigation" :key="item.to" class="nav-item" :to="item.to">
+          <AppIcon :name="item.icon" /><span>{{ item.label }}</span>
+        </RouterLink>
       </nav>
-
-      <div class="sidebar-footer">
-        <button v-if="user" class="button-ghost" type="button" @click="handleLogout">退出登录</button>
+      <div v-if="!isAuth" class="sidebar-note"><AppIcon name="book" /><p>记录今天的收获。<br />让每一步都有迹可循。</p></div>
+      <div v-if="!isAuth" class="sidebar-footer">
+        <RouterLink v-if="user" to="/profile" class="sidebar-user">
+          <div class="avatar"><img v-if="user.avatar_url" :src="user.avatar_url" :alt="user.display_name" /><span v-else>{{ initials(user.display_name) }}</span></div>
+          <div class="user-details"><strong>{{ user.display_name }}</strong><span>{{ user.role === 'admin' ? '管理员' : '学习成员' }}</span></div>
+        </RouterLink>
+        <button v-if="user" class="logout-button" type="button" @click="handleLogout"><AppIcon name="logout" /><span>退出登录</span></button>
       </div>
+      <span v-else class="auth-nav-note">专注学习 · 认真记录</span>
     </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <div class="topbar-title">
-          <h1>{{ title }}</h1>
-          <p>今天是 {{ todayLabel }}，所有历史记录跨日后只读。</p>
-        </div>
-        <div v-if="user" class="user-chip">
-          <div v-if="user.avatar_url" class="avatar image-avatar">
-            <img :src="user.avatar_url" :alt="user.display_name" />
-          </div>
-          <div v-else class="avatar">{{ initials(user.display_name) }}</div>
-          <div>
-            <div style="font-weight:700">{{ user.display_name }}</div>
-            <div class="muted">{{ user.role }}</div>
-          </div>
-        </div>
+    <main id="main-content" class="main" tabindex="-1">
+      <header v-if="!isAuth" class="topbar">
+        <div class="topbar-title"><h1>{{ title }}</h1><p>{{ descriptions[route.path] }}</p></div>
+        <div class="today-label"><AppIcon name="calendar" /><span>{{ todayLabel }}</span></div>
       </header>
-
       <RouterView />
+      <footer class="page-footer"><span>DailyLog · 每日学习记录</span><span>今天可编辑，历史只读</span></footer>
     </main>
   </div>
 </template>
-
 <script setup>
 import { computed, watchEffect } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
+import AppIcon from './components/AppIcon.vue';
 import { useDailyLog } from './state.js';
 import { formatDate, initials, todayKey } from './utils.js';
-
 const { currentUser, logout, clearDraft } = useDailyLog();
 const route = useRoute();
 const router = useRouter();
-
 const user = computed(() => currentUser());
+const isAuth = computed(() => Boolean(route.meta.public));
 const title = computed(() => route.meta.title || 'DailyLog');
 const todayLabel = computed(() => formatDate(todayKey()));
-
-watchEffect(() => {
-  document.title = title.value === 'DailyLog' ? 'DailyLog' : `DailyLog · ${title.value}`;
-});
-
+const descriptions = {
+  '/home': '把今天学到的，留在今天这一页。',
+  '/history': '翻阅过去的积累，看见自己的脚步。',
+  '/members': '一起学习，也看见彼此的坚持。',
+  '/profile': '管理你的昵称与头像。',
+  '/admin': '邀请学习伙伴，管理成员账号。'
+};
+const navigation = computed(() => [
+  { to: '/home', icon: 'table', label: '每日表格' },
+  { to: '/history', icon: 'history', label: '历史记录' },
+  { to: '/members', icon: 'users', label: '学习成员' },
+  { to: '/profile', icon: 'profile', label: '个人资料' },
+  ...(user.value?.role === 'admin' ? [{ to: '/admin', icon: 'shield', label: '成员管理' }] : [])
+]);
+watchEffect(() => { document.title = title.value === 'DailyLog' ? 'DailyLog' : `DailyLog · ${title.value}`; });
 async function handleLogout() {
   clearDraft();
   await logout();

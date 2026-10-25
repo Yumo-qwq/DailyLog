@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:android-web": "node scripts/check-android-env.mjs && vite build --mode android --base /assets/ --outDir android/app/src/main/assets --emptyOutDir",
     "preview": "vite preview",
     "verify:supabase": "node scripts/verify-supabase.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
+    "lxgw-wenkai-webfont": "^1.7.0",
     "vue": "^3.5.41",
     "vue-router": "^5.2.0"
   },

@@ -2,16 +2,17 @@
   <section class="section">
     <div class="section-inner">
       <div class="section-title">
-        <h2>管理员</h2>
+        <h2>成员与邀请</h2>
         <span class="status muted">只管账号，不改历史</span>
       </div>
 
       <div class="admin-grid">
         <form class="admin-form" @submit.prevent="sendInvite">
+          <div><h3>邀请新伙伴</h3><p class="muted">对方将通过邮件自行设置密码。</p></div>
           <label class="field"><span>邮箱</span><input v-model="form.email" type="email" autocomplete="off" autocapitalize="none" /></label>
           <label class="field"><span>用户名</span><input v-model="form.username" type="text" autocomplete="off" autocapitalize="none" /></label>
           <label class="field"><span>昵称</span><input v-model="form.display_name" type="text" autocomplete="off" /></label>
-          <label class="field"><span>角色</span><select v-model="form.role"><option value="member">member</option><option value="admin">admin</option></select></label>
+          <label class="field"><span>角色</span><select v-model="form.role"><option value="member">学习成员</option><option value="admin">管理员</option></select></label>
           <button class="button" type="submit">发送邀请</button>
         </form>
 
@@ -30,8 +31,8 @@
               <tr v-for="member in state.users" :key="member.id">
                 <td>{{ member.username }}</td>
                 <td>{{ member.display_name }}</td>
-                <td>{{ member.role }}</td>
-                <td>{{ member.is_active ? '启用' : '禁用' }}</td>
+                <td>{{ member.role === 'admin' ? '管理员' : '学习成员' }}</td>
+                <td><span class="status" :class="member.is_active ? 'ok' : 'muted'">{{ member.is_active ? '启用' : '禁用' }}</span></td>
                 <td>
                   <button
                     v-if="member.id !== user?.id"

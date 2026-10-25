@@ -21,6 +21,24 @@ http://127.0.0.1:4173/
 npm run build
 ```
 
+## Android APK（Kotlin）
+
+`android/` 是 Kotlin 编写的 Android 容器。它将现有 Vue 界面内置到 APK：主题、登录、今日表格、图片、历史、成员、资料及管理员功能共用同一套实现。网页资源由 AndroidX `WebViewAssetLoader` 以本地 HTTPS 源加载；打卡数据仍通过 Supabase 同步，因此使用这些在线功能需要联网。
+
+手机窄屏采用纵向手账：今日按学习主题编辑，历史和成员记录按日期展开；宽屏继续使用完整表格。
+
+构建环境：JDK 21、Android SDK API 36 与 Build Tools 35.0.0、Node.js。先在项目根目录配置 `.env.local` 的 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_PUBLISHABLE_KEY`。这两个值是现有网页使用的公开客户端配置，不要放入 service role key。
+
+```bash
+npm ci
+cd android
+./gradlew assembleDebug
+```
+
+Gradle 会先执行 `npm run build:android-web`，然后生成 `android/app/build/outputs/apk/debug/app-debug.apk`。本机 WSL 的 SDK 位于 `/opt/dailylog-android-sdk`，对应设置保存在忽略提交的 `android/local.properties`；其他机器可通过 Android Studio 配置 SDK，或设置 `ANDROID_HOME`。发布给他人时需另行配置正式签名，调试 APK 只适合安装测试。
+
+手机选图由系统文件选择器处理；返回手势在有页面历史时返回上一页。管理员邀请邮件仍按服务器端 `DAILYLOG_APP_URL` 打开网页设置密码，完成后可在 APK 中登录。
+
 ## Supabase
 
 本地前端配置放在 `.env.local`：
@@ -110,6 +128,7 @@ supabase/verify_remote.sql
 ## 说明
 
 - 前端使用 Vue 3 + Vite。
+- 界面字体使用霞鹜文楷的分片 WOFF2 网页字体（`lxgw-wenkai-webfont`）。字体及打包工具的授权文本在 `public/licenses/`。
 - 主页面是“每日一行表格”，学习主题是自定义列，今天这一行的格子可编辑，历史行只读。
 - 可以新增列，例如“数据结构”，新增后会显示在表头，旧日期默认显示 `-`。
 - 每个格子都支持单独写字、上传图片；修改先保存在本地草稿，点击保存后才写入数据库并生成日志。
