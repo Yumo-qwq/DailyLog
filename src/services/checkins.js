@@ -187,52 +187,65 @@ export async function markTodayCheckin() {
   return data;
 }
 
-export async function saveTodayCheckin({ userId, columns = [], entries = {}, logs = [], studyMinutes = null }) {
+export async function saveTodayCheckin({
+  userId,
+  columns = [],
+  entries = {},
+  logs = [],
+  studyMinutes = null,
+  changedColumnIds = null,
+  imageChangedColumnIds = null
+}) {
   ensureSupabase();
   const currentDate = todayKey();
   const checkin = await ensureTodayCheckinRecord(userId);
   const savedAt = new Date().toISOString();
-  const existingEntryRows = await fetchTable(supabase.from('checkin_entries').select('*').eq('checkin_id', checkin.id));
-  const existingEntriesByColumn = new Map(existingEntryRows.map((row) => [row.column_id, row]));
-
   const nextEntries = {};
+  const changedIds = new Set(changedColumnIds || columns.map((column) => column.id));
+  const imageChangedIds = new Set(imageChangedColumnIds || changedIds);
+  const changedColumns = columns.filter((column) => changedIds.has(column.id));
 
   for (const column of columns) {
     const desiredCell = normalizeCellRecord(entries[column.id]);
-    const previousEntry = existingEntriesByColumn.get(column.id) || null;
-    const previousCell = normalizeCellRecord(previousEntry);
-
-    if (!desiredCell && !previousCell) {
-      continue;
-    }
-
-    const content = desiredCell?.content || '';
-    const entryPayload = {
-      checkin_id: checkin.id,
-      column_id: column.id,
-      content
-    };
-
-    if (previousEntry || desiredCell) {
-      const { error: entryError } = await supabase.from('checkin_entries').upsert(entryPayload, { onConflict: 'checkin_id,column_id' });
-      if (entryError) throw entryError;
-    }
-
-    const syncImages = await syncCheckinImages({
-      userId,
-      checkinId: checkin.id,
-      columnId: column.id,
-      images: desiredCell?.images || []
-    });
-
-    if (hasCellData(desiredCell) || syncImages.length > 0 || hasCellData(previousCell)) {
+    if (desiredCell) {
       nextEntries[column.id] = {
-        content,
-        images: syncImages,
-        created_at: previousEntry?.created_at || checkin.created_at || new Date().toISOString(),
-        updated_at: savedAt
+        ...desiredCell,
+        updated_at: changedIds.has(column.id) ? savedAt : desiredCell.updated_at
       };
     }
+  }
+
+  if (changedColumns.length > 0) {
+    const entryPayloads = changedColumns.map((column) => ({
+      checkin_id: checkin.id,
+      column_id: column.id,
+      content: nextEntries[column.id]?.content || ''
+    }));
+    const { data: savedEntryRows, error: entryError } = await supabase
+      .from('checkin_entries')
+      .upsert(entryPayloads, { onConflict: 'checkin_id,column_id' })
+      .select('*');
+    if (entryError) throw entryError;
+    for (const row of savedEntryRows || []) {
+      if (!nextEntries[row.column_id]) continue;
+      nextEntries[row.column_id].created_at = row.created_at;
+      nextEntries[row.column_id].updated_at = row.updated_at;
+    }
+  }
+
+  const imageResults = await Promise.all(
+    changedColumns.filter((column) => imageChangedIds.has(column.id)).map(async (column) => [
+      column.id,
+      await syncCheckinImages({
+        userId,
+        checkinId: checkin.id,
+        columnId: column.id,
+        images: nextEntries[column.id]?.images || []
+      })
+    ])
+  );
+  for (const [columnId, images] of imageResults) {
+    if (nextEntries[columnId]) nextEntries[columnId].images = images;
   }
 
   const summary = buildContentSummary(nextEntries, columns);
@@ -240,7 +253,7 @@ export async function saveTodayCheckin({ userId, columns = [], entries = {}, log
     ? studyMinutes
     : Object.values(nextEntries).filter((cell) => hasCellData(cell)).length;
 
-  const { error: checkinUpdateError } = await supabase
+  const { data: savedCheckin, error: checkinUpdateError } = await supabase
     .from('checkins')
     .update({
       content: summary,
@@ -248,9 +261,12 @@ export async function saveTodayCheckin({ userId, columns = [], entries = {}, log
       checked_in_at: checkin.checked_in_at || savedAt,
       updated_at: savedAt
     })
-    .eq('id', checkin.id);
+    .eq('id', checkin.id)
+    .select('*')
+    .single();
   if (checkinUpdateError) throw checkinUpdateError;
 
+  let savedLogs = [];
   if (Array.isArray(logs) && logs.length > 0) {
     const logRows = logs.map((log) => ({
       checkin_id: checkin.id,
@@ -263,13 +279,16 @@ export async function saveTodayCheckin({ userId, columns = [], entries = {}, log
       summary: log.summary || '',
       created_at: log.created_at || new Date().toISOString()
     }));
-    const { error: logError } = await supabase.from('checkin_change_logs').insert(logRows);
+    const { data, error: logError } = await supabase.from('checkin_change_logs').insert(logRows).select('*');
     if (logError) throw logError;
+    savedLogs = data || [];
   }
 
   return {
     checkinId: checkin.id,
-    entries: nextEntries
+    checkin: savedCheckin,
+    entries: nextEntries,
+    logs: savedLogs
   };
 }
 
@@ -286,14 +305,14 @@ export async function createLearningColumn(userId, name, order = null) {
 
   const { data, error } = await supabase.from('learning_columns').insert(payload).select('*').single();
   if (error) throw error;
-  await recordTodayChangeLog({
+  const change = await recordTodayChangeLog({
     userId,
     columnId: data.id,
     columnName: data.name,
     action: 'column-create',
     summary: `新增学习列「${data.name}」`
   });
-  return data;
+  return { column: data, ...change };
 }
 
 export async function renameLearningColumn(userId, columnId, name, previousName = '') {
@@ -303,14 +322,14 @@ export async function renameLearningColumn(userId, columnId, name, previousName 
 
   const { data, error } = await supabase.from('learning_columns').update({ name: trimmed }).eq('id', columnId).select('*').single();
   if (error) throw error;
-  await recordTodayChangeLog({
+  const change = await recordTodayChangeLog({
     userId,
     columnId: data.id,
     columnName: data.name,
     action: 'column-rename',
     summary: previousName ? `「${previousName}」改名为「${data.name}」` : `列名改为「${data.name}」`
   });
-  return data;
+  return { column: data, ...change };
 }
 
 export async function reorderLearningColumns(userId, orderedColumns = []) {
@@ -334,12 +353,12 @@ export async function reorderLearningColumns(userId, orderedColumns = []) {
     .select('*');
   if (error) throw error;
 
-  await recordTodayChangeLog({
+  const change = await recordTodayChangeLog({
     userId,
     action: 'column-reorder',
     summary: `调整列顺序：${payload.map((column) => column.name).join('、')}`
   });
-  return data || payload;
+  return { columns: data || payload, ...change };
 }
 
 export async function updateProfile(userId, payload = {}) {
@@ -361,7 +380,7 @@ export async function updateProfile(userId, payload = {}) {
 export async function recordTodayChangeLog({ userId, columnId = null, columnName = '', action = 'update', summary = '' }) {
   ensureSupabase();
   const checkin = await ensureTodayCheckinRecord(userId);
-  const { error } = await supabase.from('checkin_change_logs').insert({
+  const { data, error } = await supabase.from('checkin_change_logs').insert({
     checkin_id: checkin.id,
     column_id: columnId,
     user_id: userId,
@@ -371,6 +390,7 @@ export async function recordTodayChangeLog({ userId, columnId = null, columnName
     action,
     summary,
     created_at: new Date().toISOString()
-  });
+  }).select('*').single();
   if (error) throw error;
+  return { checkin, log: data };
 }

@@ -60,7 +60,7 @@ const navigation = computed(() => [
 ]);
 watchEffect(() => { document.title = title.value === 'DailyLog' ? 'DailyLog' : `DailyLog · ${title.value}`; });
 async function handleLogout() {
-  clearDraft();
+  await clearDraft();
   await logout();
   router.push('/login');
 }

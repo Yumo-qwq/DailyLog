@@ -111,15 +111,17 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import CompactHeatmap from '../components/CompactHeatmap.vue';
 import ImageLightbox from '../components/ImageLightbox.vue';
 import MonthlyCheckinTable from '../components/MonthlyCheckinTable.vue';
 import { useDailyLog } from '../state.js';
 import { normalizeCellRecord } from '../services/model.js';
 import { buildHeatmap, currentMonthKey, formatDateTime, initials, isCheckinComplete, monthDates, todayKey } from '../utils.js';
+import { notify } from '../toast.js';
 
-const { state, currentUser, getLearningColumns, metricsForUser } = useDailyLog();
+const { state, currentUser, getLearningColumns, metricsForUser, refreshIfStale } = useDailyLog();
+onMounted(() => { void refreshIfStale().catch((error) => notify('error', error.message || '成员记录刷新失败')); });
 const today = todayKey();
 const currentMonth = currentMonthKey();
 const members = computed(() => state.users.filter((item) => item.is_active));

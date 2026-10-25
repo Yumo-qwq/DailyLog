@@ -39,14 +39,16 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import ImageLightbox from '../components/ImageLightbox.vue';
 import MonthlyCheckinTable from '../components/MonthlyCheckinTable.vue';
 import { useDailyLog } from '../state.js';
 import { normalizeCellRecord } from '../services/model.js';
 import { currentMonthKey, isCheckinComplete, monthDates, todayKey } from '../utils.js';
+import { notify } from '../toast.js';
 
-const { state, currentUser, getLearningColumns } = useDailyLog();
+const { state, currentUser, getLearningColumns, refreshIfStale } = useDailyLog();
+onMounted(() => { void refreshIfStale().catch((error) => notify('error', error.message || '历史记录刷新失败')); });
 const today = todayKey();
 const currentMonth = currentMonthKey();
 const selectedMonth = ref(currentMonth);

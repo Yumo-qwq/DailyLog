@@ -460,7 +460,11 @@ function snapshotDraft() {
     const cell = normalizeCell(cellDraft[column.id]);
     cells[column.id] = {
       content: cell.content,
-      images: cell.images.map(cloneImage),
+      images: cell.images.map((image) => {
+        const copy = cloneImage(image);
+        if (copy.previewUrl === copy.dataUrl) delete copy.previewUrl;
+        return copy;
+      }),
       created_at: cell.created_at,
       updated_at: cell.updated_at
     };
@@ -662,6 +666,8 @@ async function saveToday() {
   const timestamp = new Date().toISOString();
   const nextEntries = {};
   const logs = [];
+  const changedColumnIds = [];
+  const imageChangedColumnIds = [];
 
   for (const column of columns.value) {
     const previousCell = normalizeCell(previousEntries[column.id]);
@@ -687,7 +693,13 @@ async function saveToday() {
     }
 
     const log = buildCellChangeLog(column, previousCell, nextCell, timestamp, checkinId);
-    if (log) logs.push(log);
+    if (log) {
+      logs.push(log);
+      changedColumnIds.push(column.id);
+      if (imageSignature(previousCell.images) !== imageSignature(nextCell.images)) {
+        imageChangedColumnIds.push(column.id);
+      }
+    }
   }
 
   if (!logs.length) {
@@ -704,7 +716,9 @@ async function saveToday() {
       columns: columns.value,
       content: buildContentSummary(nextEntries, columns.value),
       study_minutes: Object.values(nextEntries).filter((cell) => hasCellData(cell)).length,
-      logs
+      logs,
+      changedColumnIds,
+      imageChangedColumnIds
     });
     saveStatus.value = `已保存 ${formatClock(timestamp)}`;
     notify('success', '今日表格已保存');

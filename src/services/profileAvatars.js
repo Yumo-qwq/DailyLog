@@ -1,4 +1,5 @@
 import { profileAvatarBucketName, supabase } from '../lib/supabase.js';
+import { signedUrlsForPaths } from './signedUrls.js';
 
 const AVATAR_STORAGE_PREFIX = `storage:${profileAvatarBucketName}/`;
 const MAX_AVATAR_BYTES = 512 * 1024;
@@ -40,46 +41,22 @@ export function avatarStorageValue(path = '') {
 
 export async function resolveProfileAvatars(profileRows = [], expiresIn = 60 * 60) {
   ensureSupabase();
-
-  const entries = await Promise.all(
-    profileRows.map(async (profile) => {
-      const rawAvatar = String(profile.avatar_url || '').trim();
-      const storagePath = avatarStoragePathFromValue(rawAvatar);
-      if (!storagePath) {
-        return [
-          profile.id,
-          {
-            rawAvatar,
-            storagePath: '',
-            displayUrl: rawAvatar
-          }
-        ];
-      }
-
-      try {
-        const { data, error } = await supabase.storage.from(profileAvatarBucketName).createSignedUrl(storagePath, expiresIn);
-        return [
-          profile.id,
-          {
-            rawAvatar,
-            storagePath,
-            displayUrl: error ? (/^(?:https?:|data:)/i.test(rawAvatar) ? rawAvatar : '') : data?.signedUrl || ''
-          }
-        ];
-      } catch {
-        return [
-          profile.id,
-          {
-            rawAvatar,
-            storagePath,
-            displayUrl: /^(?:https?:|data:)/i.test(rawAvatar) ? rawAvatar : ''
-          }
-        ];
-      }
-    })
+  const signedUrls = await signedUrlsForPaths(
+    profileAvatarBucketName,
+    profileRows.map((profile) => avatarStoragePathFromValue(profile.avatar_url)),
+    expiresIn
   );
-
-  return new Map(entries);
+  return new Map(profileRows.map((profile) => {
+    const rawAvatar = String(profile.avatar_url || '').trim();
+    const storagePath = avatarStoragePathFromValue(rawAvatar);
+    return [profile.id, {
+      rawAvatar,
+      storagePath,
+      displayUrl: storagePath
+        ? signedUrls.get(storagePath) || (/^(?:https?:|data:)/i.test(rawAvatar) ? rawAvatar : '')
+        : rawAvatar
+    }];
+  }));
 }
 
 export async function uploadProfileAvatar({ userId, image }) {

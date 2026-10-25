@@ -1,6 +1,7 @@
 import { createId } from '../utils.js';
 import { supabase, supabaseBucketName } from '../lib/supabase.js';
 import { normalizeImageRecord } from './model.js';
+import { signedUrlsForPaths } from './signedUrls.js';
 
 function ensureSupabase() {
   if (!supabase) throw new Error('Supabase 未配置');
@@ -24,19 +25,7 @@ export function storagePathForImage({ userId, checkinId, image }) {
 
 export async function resolveSignedImageUrls(imageRows = [], expiresIn = 60 * 60) {
   ensureSupabase();
-  const entries = await Promise.all(
-    imageRows.map(async (row) => {
-      try {
-        const { data, error } = await supabase.storage.from(supabaseBucketName).createSignedUrl(row.storage_path, expiresIn);
-        if (error || !data?.signedUrl) return [row.storage_path, ''];
-        return [row.storage_path, data.signedUrl];
-      } catch {
-        return [row.storage_path, ''];
-      }
-    })
-  );
-
-  return new Map(entries);
+  return await signedUrlsForPaths(supabaseBucketName, imageRows.map((row) => row.storage_path), expiresIn);
 }
 
 export async function syncCheckinImages({ userId, checkinId, columnId, images = [] }) {
