@@ -174,11 +174,28 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); }
 .member-card-title strong { overflow-wrap: anywhere; }
 .member-card-title .muted { font-size: 11px; }
 .member-card-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); }
-.heatmap-mini { display: grid; grid-template-columns: repeat(7, 9px); gap: 4px; }
-.heat-cell-mini { width: 9px; height: 9px; border-radius: 2px; background: #e0e6d7; }
-.heat-cell-mini[data-level='1'] { background: #b8d3a4; }
-.heat-cell-mini[data-level='2'] { background: #7da267; }
-.heat-cell-mini[data-level='3'] { background: #426f42; }
+.contribution-heatmap { --heat-size: 9px; --heat-gap: 3px; display: grid; align-content: end; gap: 4px; min-width: 0; }
+.contribution-months { display: grid; grid-template-columns: repeat(var(--heat-weeks), var(--heat-size)); gap: var(--heat-gap); height: 16px; margin-left: 17px; color: var(--muted); font-size: 10px; line-height: 16px; }
+.contribution-month { width: 25px; white-space: nowrap; }
+.contribution-chart { display: flex; gap: 6px; }
+.contribution-weekdays, .contribution-week { display: grid; grid-template-rows: repeat(7, var(--heat-size)); gap: var(--heat-gap); }
+.contribution-weekdays { width: 11px; flex: 0 0 11px; color: var(--muted); font-size: 9px; line-height: var(--heat-size); }
+.contribution-weeks { display: flex; gap: var(--heat-gap); }
+.contribution-day, .contribution-legend > span[data-level] { display: block; width: var(--heat-size); height: var(--heat-size); border-radius: 2px; background: #e5ebe3; }
+.contribution-day[data-level='1'], .contribution-legend > span[data-level='1'] { background: #bddac4; }
+.contribution-day[data-level='2'], .contribution-legend > span[data-level='2'] { background: #8dbd9b; }
+.contribution-day[data-level='3'], .contribution-legend > span[data-level='3'] { background: #5b9771; }
+.contribution-day[data-level='4'], .contribution-legend > span[data-level='4'] { background: #2c694a; }
+.contribution-day.is-today { outline: 1px solid var(--brand); outline-offset: 1px; }
+.contribution-day.is-future { background: transparent; }
+.contribution-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 3px 7px; margin-top: 4px; color: var(--muted); font-size: 10px; }
+.contribution-legend { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.member-activity { display: grid; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.member-activity-heading h3 { margin-bottom: 3px; }
+.member-activity-heading p { font-size: 12px; }
+.member-activity-scroll { max-width: 100%; overflow-x: auto; padding: 6px 2px 10px; }
+.contribution-heatmap--year { width: max-content; --heat-size: 10px; --heat-gap: 3px; }
+.contribution-heatmap--year .contribution-footer { margin-top: 8px; }
 .log-list { display: grid; }
 .log-item { padding: 18px 0; display: grid; gap: 7px; border-bottom: 1px solid #e5e8dc; }
 .log-item:first-child { padding-top: 0; }

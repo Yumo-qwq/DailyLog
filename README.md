@@ -35,7 +35,7 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Gradle 会先执行 `npm run build:android-web`，然后生成 `android/app/build/outputs/apk/debug/app-debug.apk`。本机 WSL 的 SDK 位于 `/opt/dailylog-android-sdk`，对应设置保存在忽略提交的 `android/local.properties`；其他机器可通过 Android Studio 配置 SDK，或设置 `ANDROID_HOME`。发布给他人时需另行配置正式签名，调试 APK 只适合安装测试。
+Gradle 会先执行 `npm run build:android-web`，然后生成带版本号的 `android/app/build/outputs/apk/debug/DailyLog-v1.0.1.apk`。Android 版本号在 `android/app/build.gradle.kts` 中维护；当前为 `1.0.1`，后续小修改递增补丁号和 `versionCode`，大版本由用户决定。本机 WSL 的 SDK 位于 `/opt/dailylog-android-sdk`，对应设置保存在忽略提交的 `android/local.properties`；其他机器可通过 Android Studio 配置 SDK，或设置 `ANDROID_HOME`。发布给他人时需另行配置正式签名，调试 APK 只适合安装测试。
 
 手机选图由系统文件选择器处理；返回手势在有页面历史时返回上一页。管理员邀请邮件仍按服务器端 `DAILYLOG_APP_URL` 打开网页设置密码，完成后可在 APK 中登录。
 

@@ -40,6 +40,18 @@
             <CompactHeatmap :cells="heatmaps[member.id]" />
           </button>
         </div>
+
+        <div v-if="selectedMember" class="member-activity">
+          <div class="member-activity-heading">
+            <div>
+              <h3>{{ selectedMember.display_name }} · 科目修改</h3>
+              <p class="muted">过去 52 周，每天改过的科目各计一次。颜色越深，修改的科目越多。</p>
+            </div>
+          </div>
+          <div class="member-activity-scroll" tabindex="0" role="region" aria-label="过去一年的科目修改热力图，可横向滚动">
+            <CompactHeatmap :cells="annualHeatmap" class="contribution-heatmap--year" />
+          </div>
+        </div>
       </div>
     </section>
 
@@ -117,7 +129,7 @@ import ImageLightbox from '../components/ImageLightbox.vue';
 import MonthlyCheckinTable from '../components/MonthlyCheckinTable.vue';
 import { useDailyLog } from '../state.js';
 import { normalizeCellRecord } from '../services/model.js';
-import { buildHeatmap, currentMonthKey, formatDateTime, initials, isCheckinComplete, monthDates, todayKey } from '../utils.js';
+import { buildSubjectEditHeatmap, currentMonthKey, formatDateTime, initials, isCheckinComplete, monthDates, todayKey } from '../utils.js';
 import { notify } from '../toast.js';
 
 const { state, currentUser, getLearningColumns, metricsForUser, refreshIfStale } = useDailyLog();
@@ -180,10 +192,13 @@ const selectedLogs = computed(() =>
 const heatmaps = computed(() => {
   const result = {};
   for (const member of members.value) {
-    result[member.id] = buildHeatmap(state.checkins, member.id, 21, today);
+    result[member.id] = buildSubjectEditHeatmap(state.activityLogs, state.checkins, member.id, 12, today);
   }
   return result;
 });
+const annualHeatmap = computed(() => selectedMember.value
+  ? buildSubjectEditHeatmap(state.activityLogs, state.checkins, selectedMember.value.id, 52, today)
+  : []);
 
 function openImage(image) {
   const src = image?.previewUrl || image?.dataUrl || image?.url || '';

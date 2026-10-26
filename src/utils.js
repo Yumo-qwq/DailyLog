@@ -124,6 +124,39 @@ export function buildHeatmap(checkins, userId, days = 84, currentDate = todayKey
   return cells;
 }
 
+export function buildSubjectEditHeatmap(logs, checkins, userId, weeks = 12, currentDate = todayKey()) {
+  const subjectsByDate = new Map();
+  const cellActions = new Set(['cell-create', 'cell-update', 'cell-clear', 'cell-images']);
+
+  for (const log of logs || []) {
+    if (log.user_id !== userId || !cellActions.has(log.action) || !log.date) continue;
+    const subject = log.column_id || log.column_name;
+    if (!subject) continue;
+    if (!subjectsByDate.has(log.date)) subjectsByDate.set(log.date, new Set());
+    subjectsByDate.get(log.date).add(subject);
+  }
+
+  // Records created before per-subject logs existed still contribute to the calendar.
+  for (const checkin of checkins || []) {
+    if (checkin.user_id !== userId || subjectsByDate.has(checkin.date)) continue;
+    const subjects = Object.entries(checkin.entries || {})
+      .filter(([, cell]) => Boolean((cell?.content || '').trim() || cell?.images?.length))
+      .map(([columnId]) => columnId);
+    if (subjects.length) subjectsByDate.set(checkin.date, new Set(subjects));
+  }
+
+  const weekCount = Math.max(1, Math.floor(weeks));
+  const dayOfWeek = new Date(`${currentDate}T12:00:00Z`).getUTCDay();
+  const start = shiftDate(currentDate, -(weekCount - 1) * 7 - dayOfWeek);
+
+  return Array.from({ length: weekCount * 7 }, (_, index) => {
+    const key = shiftDate(start, index);
+    const isFuture = key > currentDate;
+    const count = isFuture ? 0 : (subjectsByDate.get(key)?.size || 0);
+    return { key, count, level: Math.min(count, 4), isFuture, isToday: key === currentDate };
+  });
+}
+
 export function monthLabel(dateKey) {
   return dateKey.slice(0, 7);
 }
