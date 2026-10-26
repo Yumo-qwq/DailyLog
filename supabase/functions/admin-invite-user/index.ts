@@ -137,7 +137,16 @@ Deno.serve(async (request) => {
   // Supabase generates and stores the credential internally. This endpoint never receives a password.
   const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, options);
   if (inviteError || !invited?.user?.id) {
-    return jsonResponse({ error: inviteError?.message || '发送邀请失败' }, 400);
+    const message = inviteError?.message?.trim() || '';
+    const smtpAuthFailure = /\b535\b|authentication credentials invalid/i.test(message);
+    const serviceFailure = (inviteError?.status || 0) >= 500 || message === '{}' || smtpAuthFailure;
+    return jsonResponse({
+      error: smtpAuthFailure
+        ? 'SMTP 拒绝认证，请检查 Supabase Authentication 的发信凭据'
+        : serviceFailure
+          ? `邀请服务返回错误${inviteError?.status ? `（Auth HTTP ${inviteError.status}）` : ''}，请查看本次请求的 Supabase Authentication 日志`
+        : message || '发送邀请失败'
+    }, serviceFailure ? 502 : 400);
   }
 
   const { data: profile, error: profileError } = await adminClient

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.js';
+import { edgeFunctionErrorMessage } from './edgeFunctionError.js';
 
 function ensureSupabase() {
   if (!supabase) throw new Error('Supabase 未配置');
@@ -10,22 +11,6 @@ export function normalizeUsername(value = '') {
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '');
-}
-
-async function edgeFunctionErrorMessage(error, fallback) {
-  if (error?.name === 'FunctionsFetchError') return `${fallback}服务未部署或不可用`;
-
-  const response = error?.context;
-  if (response && typeof response.json === 'function') {
-    try {
-      const payload = await response.json();
-      if (payload?.error) return payload.error;
-    } catch {
-      // Fall through to the generic message below.
-    }
-  }
-
-  return error?.message || fallback;
 }
 
 export async function inviteUser(payload = {}) {
@@ -46,7 +31,8 @@ export async function inviteUser(payload = {}) {
   }
 
   if (!data?.profile) {
-    throw new Error(data?.error || '发送邀请失败');
+    const message = typeof data?.error === 'string' ? data.error.trim() : '';
+    throw new Error(message && message !== '{}' ? message : '发送邀请失败，请检查 Supabase Edge Function 日志');
   }
   return data.profile;
 }
