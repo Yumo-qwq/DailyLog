@@ -207,9 +207,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); }
 .log-meta { display: flex; gap: 14px; color: var(--muted); }
 .empty { margin-bottom: 16px; padding: 22px; background: #f5f6ef; border-radius: 8px; color: var(--muted); font-size: 13px; line-height: 1.8; }
 .profile-section { max-width: 880px; }
+.profile-section + .profile-section { margin-top: 18px; }
 .profile-section .section-inner { padding: 32px; }
 .profile-form { display: grid; gap: 24px; max-width: 580px; }
 .profile-form > .button { justify-self: start; min-width: 120px; }
+.profile-security { display: grid; justify-items: start; gap: 14px; max-width: 580px; font-size: 13px; }
+.profile-security strong { color: var(--text); overflow-wrap: anywhere; }
+.password-feedback { padding: 12px 14px; border-radius: 7px; background: var(--brand-soft); color: var(--brand); font-size: 13px; line-height: 1.6; }
 .profile-avatar-row { display: flex; align-items: center; gap: 22px; }
 .profile-avatar-preview { width: 88px; height: 88px; flex: 0 0 88px; display: grid; place-items: center; background: #e2ead8; border-radius: 16px; overflow: hidden; color: var(--brand); font-size: 30px; }
 .profile-avatar-actions { min-width: 0; display: grid; gap: 10px; }
@@ -240,6 +244,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); }
 .login-form h2 { font-size: 25px; }
 .login-intro { margin-bottom: 8px; font-size: 13px; }
 .login-form .button { min-height: 44px; margin-top: 6px; }
+.auth-text-link { width: fit-content; color: var(--brand); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.auth-text-link:hover { color: var(--brand-hover); }
+.auth-forgot-link { justify-self: end; margin-top: -12px; }
 .login-help { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
 .login-help .icon { width: 14px; height: 14px; flex-basis: 14px; }
 .form-error { color: var(--danger); padding: 12px; border-radius: 6px; background: #f9eae4; font-size: 13px; }

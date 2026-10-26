@@ -39,13 +39,30 @@
       </form>
     </div>
   </section>
+  <section class="section profile-section">
+    <div class="section-inner">
+      <div class="section-title">
+        <div><h2>通过邮箱修改密码</h2><p class="muted">验证邮件将发送到当前账号的登录邮箱。</p></div>
+      </div>
+      <div class="profile-security">
+        <p v-if="accountEmail" class="muted">登录邮箱：<strong>{{ accountEmail }}</strong></p>
+        <p v-else class="muted">发送前会核对当前账号的登录邮箱。</p>
+        <p v-if="securityError" class="form-error" role="alert">{{ securityError }}</p>
+        <p v-if="securitySent" class="password-feedback" role="status">验证邮件已发送。打开邮件中的链接即可设置新密码。</p>
+        <button class="button-secondary" type="button" :disabled="securitySending" @click="sendPasswordEmail">
+          {{ securitySending ? '发送中…' : '发送改密验证邮件' }}
+        </button>
+      </div>
+    </div>
+  </section>
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useDailyLog } from '../state.js';
 import { compressImage, initials } from '../utils.js';
 import { avatarStorageValue, deleteProfileAvatar, uploadProfileAvatar } from '../services/profileAvatars.js';
+import { getCurrentAuthUser, requestPasswordResetEmail } from '../services/auth.js';
 import { notify } from '../toast.js';
 
 const { currentUser, updateProfile } = useDailyLog();
@@ -53,6 +70,10 @@ const user = computed(() => currentUser());
 const avatarInput = ref(null);
 const pendingAvatar = ref(null);
 const avatarRemoved = ref(false);
+const accountEmail = ref('');
+const securitySending = ref(false);
+const securitySent = ref(false);
+const securityError = ref('');
 const AVATAR_MAX_SIZE = 512;
 const AVATAR_TARGET_BYTES = 480 * 1024;
 const form = reactive({
@@ -78,6 +99,31 @@ const previewAvatar = computed(() => {
 const hasAvatar = computed(() => Boolean(pendingAvatar.value || (!avatarRemoved.value && (user.value?.avatar_storage_path || user.value?.avatar_url))));
 const username = computed(() => user.value?.username || '');
 const displayName = computed(() => form.display_name || user.value?.display_name || username.value);
+
+onMounted(async () => {
+  try {
+    const authUser = await getCurrentAuthUser();
+    if (authUser?.id === user.value?.id) accountEmail.value = authUser.email || '';
+  } catch {
+    // The send action retries the account lookup and shows an actionable error.
+  }
+});
+
+async function sendPasswordEmail() {
+  securitySending.value = true;
+  securityError.value = '';
+  try {
+    const authUser = await getCurrentAuthUser();
+    if (!authUser?.email || authUser.id !== user.value?.id) throw new Error('无法确认当前登录邮箱，请重新登录后再试');
+    accountEmail.value = authUser.email;
+    await requestPasswordResetEmail(authUser.email);
+    securitySent.value = true;
+  } catch (error) {
+    securityError.value = error.message || '邮件发送失败，请稍后重试';
+  } finally {
+    securitySending.value = false;
+  }
+}
 
 function chooseAvatar() {
   avatarInput.value?.click();

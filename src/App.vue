@@ -50,7 +50,9 @@ const descriptions = {
   '/history': '翻阅过去的积累，看见自己的脚步。',
   '/members': '一起学习，也看见彼此的坚持。',
   '/profile': '管理你的昵称与头像。',
-  '/admin': '邀请学习伙伴，管理成员账号。'
+  '/admin': '邀请学习伙伴，管理成员账号。',
+  '/forgot-password': '通过登录邮箱找回密码。',
+  '/reset-password': '验证邮件链接后设置新密码。'
 };
 const description = computed(() => isAdministrator.value && route.path === '/members'
   ? '查看学习成员的每日打卡与修改记录。'

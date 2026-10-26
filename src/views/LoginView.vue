@@ -26,6 +26,7 @@
           <span>密码</span>
           <input v-model="password" type="password" autocomplete="current-password" placeholder="请输入密码" required />
         </label>
+        <RouterLink class="auth-text-link auth-forgot-link" to="/forgot-password">忘记密码？</RouterLink>
         <button class="button" type="submit" :disabled="loading">{{ loading ? '登录中…' : '进入 DailyLog' }}</button>
         <p class="login-help"><AppIcon name="lock" />账号由管理员邀请，暂不开放注册。</p>
       </form>
@@ -36,7 +37,7 @@
 <script setup>
 import AppIcon from '../components/AppIcon.vue';
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { useDailyLog } from '../state.js';
 import { notify } from '../toast.js';
 

@@ -1,6 +1,7 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router.js';
+import { onPasswordRecovery } from './services/auth.js';
 import 'lxgw-wenkai-webfont/lxgwwenkai-regular.css';
 import 'lxgw-wenkai-webfont/lxgwwenkai-bold.css';
 import '../styles.css';
@@ -29,4 +30,7 @@ function purgeLegacyPasswords() {
 }
 
 purgeLegacyPasswords();
+onPasswordRecovery(() => {
+  void router.isReady().then(() => router.replace('/reset-password'));
+});
 createApp(App).use(router).mount('#app');
