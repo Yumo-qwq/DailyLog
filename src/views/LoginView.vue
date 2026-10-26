@@ -17,7 +17,7 @@
           <h2>欢迎回来</h2>
 
         </div>
-        <p class="muted login-intro">登录 DailyLog，继续今天的学习。</p>
+        <p class="muted login-intro">登录 DailyLog，查看或记录每天的学习。</p>
         <label class="field">
           <span>邮箱</span>
           <input v-model="email" type="email" placeholder="name@example.com" autocomplete="email" autocapitalize="none" required />
@@ -26,7 +26,7 @@
           <span>密码</span>
           <input v-model="password" type="password" autocomplete="current-password" placeholder="请输入密码" required />
         </label>
-        <button class="button" type="submit" :disabled="loading">{{ loading ? '登录中…' : '进入我的手账' }}</button>
+        <button class="button" type="submit" :disabled="loading">{{ loading ? '登录中…' : '进入 DailyLog' }}</button>
         <p class="login-help"><AppIcon name="lock" />账号由管理员邀请，暂不开放注册。</p>
       </form>
     </div>
@@ -40,7 +40,7 @@ import { useRouter } from 'vue-router';
 import { useDailyLog } from '../state.js';
 import { notify } from '../toast.js';
 
-const { login } = useDailyLog();
+const { login, currentUser } = useDailyLog();
 const router = useRouter();
 const email = ref('');
 const password = ref('');
@@ -50,7 +50,7 @@ async function submit() {
   loading.value = true;
   try {
     await login(email.value, password.value);
-    router.push('/home');
+    router.push(currentUser()?.role === 'admin' ? '/members' : '/home');
   } catch (error) {
     notify('error', error.message || '登录失败');
   } finally {

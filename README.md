@@ -35,7 +35,7 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Gradle 会先执行 `npm run build:android-web`，然后生成带版本号的 `android/app/build/outputs/apk/debug/DailyLog-v1.0.1.apk`。Android 版本号在 `android/app/build.gradle.kts` 中维护；当前为 `1.0.1`，后续小修改递增补丁号和 `versionCode`，大版本由用户决定。本机 WSL 的 SDK 位于 `/opt/dailylog-android-sdk`，对应设置保存在忽略提交的 `android/local.properties`；其他机器可通过 Android Studio 配置 SDK，或设置 `ANDROID_HOME`。发布给他人时需另行配置正式签名，调试 APK 只适合安装测试。
+Gradle 会先执行 `npm run build:android-web`，然后生成带版本号的 `android/app/build/outputs/apk/debug/DailyLog-v1.0.2.apk`。Android 版本号在 `android/app/build.gradle.kts` 中维护；当前为 `1.0.2`，后续小修改递增补丁号和 `versionCode`，大版本由用户决定。本机 WSL 的 SDK 位于 `/opt/dailylog-android-sdk`，对应设置保存在忽略提交的 `android/local.properties`；其他机器可通过 Android Studio 配置 SDK，或设置 `ANDROID_HOME`。发布给他人时需另行配置正式签名，调试 APK 只适合安装测试。
 
 手机选图由系统文件选择器处理；返回手势在有页面历史时返回上一页。管理员邀请邮件仍按服务器端 `DAILYLOG_APP_URL` 打开网页设置密码，完成后可在 APK 中登录。
 
@@ -48,7 +48,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 ```
 
-真实数据库需要按顺序执行：
+全新 Supabase 项目需要按顺序执行以下迁移，也可以复制 `supabase/complete_setup.sql` 一次执行：
 
 ```text
 supabase/migrations/001_init.sql
@@ -56,9 +56,11 @@ supabase/migrations/002_profile_avatars.sql
 supabase/migrations/003_username_auth.sql
 supabase/migrations/004_daily_checkin.sql
 supabase/migrations/005_admin_table_visibility.sql
+supabase/migrations/006_guarantee_admin_member_visibility.sql
+supabase/migrations/007_admin_observer_role.sql
 ```
 
-这一步必须通过 Supabase SQL Editor、已登录的 Supabase CLI，或数据库连接串执行。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能用于前端登录和受 RLS 保护的数据访问，不能创建表、创建 RLS policy 或初始化 Storage bucket。
+已有数据库只执行尚未应用的迁移；如果 001–006 已经执行，本次只需执行 `007_admin_observer_role.sql`，不要再运行完整初始化脚本。可以通过 Supabase SQL Editor、已登录的 Supabase CLI，或数据库连接串执行。`007` 将管理员设为只查看成员记录的角色：管理员不能新建或修改打卡，学习成员无法读取管理员旧的学习记录；旧数据会保留，不会自动删除。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能用于前端登录和受 RLS 保护的数据访问，不能创建表、创建 RLS policy 或初始化 Storage bucket。
 
 `003_username_auth.sql` 会增加 `profiles.username`：
 
@@ -133,5 +135,5 @@ supabase/verify_remote.sql
 - 可以新增列，例如“数据结构”，新增后会显示在表头，旧日期默认显示 `-`。
 - 每个格子都支持单独写字、上传图片；修改先保存在本地草稿，点击保存后才写入数据库并生成日志。
 - 每日表格顶部可以独立完成今日打卡；保存当天学习表格也会自动打卡。打卡日标绿，漏打卡日标红，连续天数遇到漏打卡会归零。
-- 热力图已经缩小成辅助块。
+- 成员卡片显示近 12 周热力图，选中成员后可查看近 52 周科目修改情况。
 - `supabase/migrations/001_init.sql` 保留了数据库、RLS、动态学习列、单元格内容、图片元数据表和 Storage policy 的起始方案。

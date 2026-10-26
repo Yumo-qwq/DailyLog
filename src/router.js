@@ -14,7 +14,7 @@ const routes = [
   { path: '/set-password', component: SetPasswordView, meta: { public: true, title: '设置密码' } },
   { path: '/home', component: DashboardView, meta: { title: '每日表格' } },
   { path: '/history', component: HistoryView, meta: { title: '历史记录' } },
-  { path: '/members', component: MembersView, meta: { title: '成员' } },
+  { path: '/members', component: MembersView, meta: { title: '学习成员' } },
   { path: '/profile', component: ProfileView, meta: { title: '个人资料' } },
   { path: '/admin', component: AdminView, meta: { admin: true, title: '管理员' } }
 ];
@@ -32,6 +32,7 @@ router.beforeEach(async (to) => {
   if (to.meta.public) return true;
   if (!user) return '/login';
   if (to.meta.admin && user.role !== 'admin') return '/home';
+  if (user.role === 'admin' && (to.path === '/home' || to.path === '/history')) return '/members';
   return true;
 });
 

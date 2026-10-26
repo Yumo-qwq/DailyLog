@@ -176,6 +176,12 @@ function requireUser(userId) {
   return user;
 }
 
+function requireLearningMember(userId) {
+  const user = requireUser(userId);
+  if (user.role !== 'member') throw new Error('管理员不能创建或修改学习记录');
+  return user;
+}
+
 export async function whenReady() {
   await initialize();
   return state.ready;
@@ -233,7 +239,7 @@ export function useDailyLog() {
       return result;
     },
     createOrUpdateTodayCheckin: async (userId, payload) => {
-      requireUser(userId);
+      requireLearningMember(userId);
       const columns = payload.columns || getLearningColumns(state, userId);
       const result = await saveTodayCheckin({
         userId,
@@ -255,14 +261,14 @@ export function useDailyLog() {
       return result;
     },
     markTodayCheckin: async (userId) => {
-      requireUser(userId);
+      requireLearningMember(userId);
       const result = await remoteMarkTodayCheckin();
       if (result?.id) applyCheckin(result);
       else await refreshFromRemote();
       return result;
     },
     createLearningColumn: async (userId, name) => {
-      requireUser(userId);
+      requireLearningMember(userId);
       const columns = getLearningColumns(state, userId);
       const nextOrder = columns.length ? Math.max(...columns.map((item) => item.column_order ?? item.order ?? 0)) + 1 : 1;
       const result = await remoteCreateLearningColumn(userId, name, nextOrder);
@@ -277,6 +283,7 @@ export function useDailyLog() {
     renameLearningColumn: async (_userId, columnId, name) => {
       const column = (state.learningColumns || []).find((item) => item.id === columnId);
       if (!column) throw new Error('列不存在');
+      requireLearningMember(column.user_id);
       const result = await remoteRenameLearningColumn(column.user_id, columnId, name, column.name);
       if (result?.column) {
         state.learningColumns = state.learningColumns.map((item) => item.id === columnId ? result.column : item);
@@ -287,7 +294,7 @@ export function useDailyLog() {
       return result;
     },
     reorderLearningColumns: async (userId, orderedColumns) => {
-      requireUser(userId);
+      requireLearningMember(userId);
       const result = await remoteReorderLearningColumns(userId, orderedColumns);
       if (result?.columns) {
         const changedById = new Map(result.columns.map((column) => [column.id, column]));

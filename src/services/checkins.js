@@ -110,7 +110,9 @@ export async function loadRemoteState() {
     fetchTable(supabase.from('checkin_change_logs').select('*').order('created_at', { ascending: false }))
   ]);
 
-  columnRows = await ensureOwnDefaultLearningColumns(sessionUserId, columnRows);
+  if (currentProfile.role !== 'admin') {
+    columnRows = await ensureOwnDefaultLearningColumns(sessionUserId, columnRows);
+  }
 
   let profileRows = currentProfile.role === 'admin'
     ? visibleProfileRows
@@ -118,6 +120,14 @@ export async function loadRemoteState() {
   if (currentProfile.role !== 'admin') {
     profileRows = restoreProfilesMissingFromLegacyRpc(profileRows, columnRows, checkinRows, logRows);
   }
+
+  const learnerIds = new Set(profileRows.filter((profile) => profile.role === 'member').map((profile) => profile.id));
+  columnRows = columnRows.filter((column) => learnerIds.has(column.user_id));
+  checkinRows = checkinRows.filter((checkin) => learnerIds.has(checkin.user_id));
+  const checkinIds = new Set(checkinRows.map((checkin) => checkin.id));
+  entryRows = entryRows.filter((entry) => checkinIds.has(entry.checkin_id));
+  imageRows = imageRows.filter((image) => checkinIds.has(image.checkin_id));
+  logRows = logRows.filter((log) => learnerIds.has(log.user_id));
 
   const [signedUrls, profileAvatars] = await Promise.all([
     resolveSignedImageUrls(imageRows),

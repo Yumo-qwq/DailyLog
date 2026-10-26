@@ -4,8 +4,8 @@
       <div class="section-inner">
         <div class="section-title">
           <div>
-            <h2>同行的学习伙伴</h2>
-            <p class="muted">这里可以查看每个人的热力图、修改日志和完整表格。</p>
+            <h2>{{ isAdministrator ? '学习成员打卡' : '同行的学习伙伴' }}</h2>
+            <p class="muted">{{ isAdministrator ? '选择学习成员，查看每天的打卡、热力图和修改记录。' : '这里可以查看每个人的热力图、修改日志和完整表格。' }}</p>
           </div>
           <span class="status muted">{{ members.length }} 人</span>
         </div>
@@ -28,7 +28,7 @@
               </div>
               <div class="member-card-title">
                 <strong>{{ member.display_name }}</strong>
-                <span class="muted">{{ member.role === 'admin' ? '管理员' : '学习成员' }}</span>
+                <span class="muted">学习成员</span>
               </div>
             </div>
 
@@ -133,10 +133,11 @@ import { buildSubjectEditHeatmap, currentMonthKey, formatDateTime, initials, isC
 import { notify } from '../toast.js';
 
 const { state, currentUser, getLearningColumns, metricsForUser, refreshIfStale } = useDailyLog();
+const isAdministrator = computed(() => currentUser()?.role === 'admin');
 onMounted(() => { void refreshIfStale().catch((error) => notify('error', error.message || '成员记录刷新失败')); });
 const today = todayKey();
 const currentMonth = currentMonthKey();
-const members = computed(() => state.users.filter((item) => item.is_active));
+const members = computed(() => state.users.filter((item) => item.is_active && item.role === 'member'));
 const selectedMemberId = ref('');
 const selectedMonth = ref(currentMonth);
 const memberOrder = ref('desc');
