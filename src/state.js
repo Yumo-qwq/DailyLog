@@ -3,7 +3,7 @@ import { getLearningColumns, getCurrentUser, getProfile, globalStats, isAdmin, m
 import { clearDraft as clearDraftStorage, loadDraft, saveDraft as saveDraftStorage } from './services/draftStorage.js';
 import { hasSupabaseConfig } from './lib/supabase.js';
 import { getSession, onAuthStateChange, signInWithEmail, signOut } from './services/auth.js';
-import { createLearningColumn as remoteCreateLearningColumn, loadRemoteState, markTodayCheckin as remoteMarkTodayCheckin, renameLearningColumn as remoteRenameLearningColumn, reorderLearningColumns as remoteReorderLearningColumns, saveTodayCheckin, updateProfile as remoteUpdateProfile } from './services/checkins.js';
+import { createLearningColumn as remoteCreateLearningColumn, deleteLearningColumn as remoteDeleteLearningColumn, loadRemoteState, markTodayCheckin as remoteMarkTodayCheckin, renameLearningColumn as remoteRenameLearningColumn, reorderLearningColumns as remoteReorderLearningColumns, saveTodayCheckin, updateProfile as remoteUpdateProfile } from './services/checkins.js';
 import { inviteUser as remoteInviteUser, setUserActive as remoteSetUserActive } from './services/users.js';
 import { todayKey } from './utils.js';
 import { notify } from './toast.js';
@@ -206,7 +206,7 @@ export function useDailyLog() {
     recentCheckins: (limit = 8) => recentCheckins(state, limit),
     metricsForUser: (userId) => metricsForUser(state, userId),
     findTodayCheckin: (userId, date) => findTodayCheckin(state, userId, date),
-    getLearningColumns: (userId) => getLearningColumns(state, userId),
+    getLearningColumns: (userId, monthKey) => getLearningColumns(state, userId, monthKey),
     login: async (email, password) => {
       signingIn = true;
       try {
@@ -279,6 +279,11 @@ export function useDailyLog() {
       }
       await refreshFromRemote();
       return result;
+    },
+    deleteLearningColumn: async (userId, columnId) => {
+      requireLearningMember(userId);
+      await remoteDeleteLearningColumn(columnId);
+      await refreshFromRemote();
     },
     renameLearningColumn: async (_userId, columnId, name) => {
       const column = (state.learningColumns || []).find((item) => item.id === columnId);

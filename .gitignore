@@ -9,6 +9,7 @@ Thumbs.db
 .impeccable/review/
 
 android/.gradle/
+android/build/
 android/local.properties
 android/app/build/
 android/app/src/main/assets/

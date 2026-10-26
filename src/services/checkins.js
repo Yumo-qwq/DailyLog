@@ -31,29 +31,6 @@ async function fetchTable(query) {
   return data || [];
 }
 
-async function ensureOwnDefaultLearningColumns(userId, columnRows) {
-  if (columnRows.some((column) => column.user_id === userId)) return columnRows;
-
-  const defaults = ['英语', '组成原理', '线性代数'].map((name, index) => ({
-    user_id: userId,
-    name,
-    column_order: index + 1
-  }));
-  const { error } = await supabase
-    .from('learning_columns')
-    .upsert(defaults, { onConflict: 'user_id,name', ignoreDuplicates: true });
-  if (error) throw error;
-
-  return await fetchTable(
-    supabase
-      .from('learning_columns')
-      .select('*')
-      .order('user_id', { ascending: true })
-      .order('column_order', { ascending: true })
-      .order('created_at', { ascending: true })
-  );
-}
-
 function restoreProfilesMissingFromLegacyRpc(profileRows, columnRows, checkinRows, logRows) {
   const result = [...profileRows];
   const visibleIds = new Set(result.map((profile) => profile.id));
@@ -109,10 +86,6 @@ export async function loadRemoteState() {
     fetchTable(supabase.from('checkin_images').select('*').order('created_at', { ascending: true })),
     fetchTable(supabase.from('checkin_change_logs').select('*').order('created_at', { ascending: false }))
   ]);
-
-  if (currentProfile.role !== 'admin') {
-    columnRows = await ensureOwnDefaultLearningColumns(sessionUserId, columnRows);
-  }
 
   let profileRows = currentProfile.role === 'admin'
     ? visibleProfileRows
@@ -310,7 +283,8 @@ export async function createLearningColumn(userId, name, order = null) {
   const payload = {
     user_id: userId,
     name: trimmed,
-    column_order: Number.isFinite(order) ? order : 0
+    column_order: Number.isFinite(order) ? order : 0,
+    month_key: todayKey().slice(0, 7)
   };
 
   const { data, error } = await supabase.from('learning_columns').insert(payload).select('*').single();
@@ -354,7 +328,8 @@ export async function reorderLearningColumns(userId, orderedColumns = []) {
     id: column.id,
     user_id: userId,
     name: column.name,
-    column_order: index + 1
+    column_order: index + 1,
+    month_key: column.month_key
   }));
 
   const { data, error } = await supabase
@@ -403,4 +378,14 @@ export async function recordTodayChangeLog({ userId, columnId = null, columnName
   }).select('*').single();
   if (error) throw error;
   return { checkin, log: data };
+}
+
+export async function deleteLearningColumn(columnId) {
+  ensureSupabase();
+  const { data: paths, error } = await supabase.rpc('delete_current_month_subject', { subject_id: columnId });
+  if (error) throw error;
+  if (paths?.length) {
+    const { error: storageError } = await supabase.storage.from('checkin-images').remove(paths);
+    if (storageError) console.warn('Failed to remove detached subject images:', storageError);
+  }
 }

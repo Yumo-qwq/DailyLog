@@ -56,7 +56,7 @@ const historyOrder = ref('desc');
 const previewImage = ref(null);
 
 const userId = computed(() => currentUser()?.id || '');
-const columns = computed(() => getLearningColumns(userId.value));
+const columns = computed(() => getLearningColumns(userId.value, selectedMonth.value));
 const historyRows = computed(() => {
   const dates = monthDates(selectedMonth.value);
   if (historyOrder.value === 'desc') dates.reverse();

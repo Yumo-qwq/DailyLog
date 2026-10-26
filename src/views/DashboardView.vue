@@ -31,7 +31,7 @@
         <div class="section-title table-title">
           <div>
             <h2>我的学习手账</h2>
-            <p class="muted">今天可以编辑，历史记录只读。文字与图片先存为本地草稿，点击保存后同步。</p>
+            <p class="muted">每日记录过零点后只读；月底自动归档。本月科目可整项删除，历史科目只读。</p>
           </div>
           <button class="button" type="button" :disabled="saving" @click="saveToday">{{ saving ? '保存中…' : '保存今日' }}</button>
         </div>
@@ -83,6 +83,7 @@
                         &rarr;
                       </button>
                       <button class="tiny-button" type="button" @click="startRename(column)">改名</button>
+                      <button class="tiny-button" type="button" @click="deleteColumn(column)">删除本月科目</button>
                     </div>
                   </div>
                 </th>
@@ -198,6 +199,7 @@
               </label>
               <button v-if="cellDraft[column.id].images.length" class="tiny-button" type="button" @click="removeAllImages(column.id)">清空图</button>
               <button v-if="renamingId !== column.id" class="tiny-button" type="button" @click="startRename(column)">改名</button>
+              <button class="tiny-button" type="button" @click="deleteColumn(column)">删除本月科目</button>
               <button class="column-move-button" type="button" :aria-label="`${column.name}向前移动`" :disabled="columnIndex === 0 || movingColumns" @click="moveColumn(columnIndex, -1)">↑</button>
               <button class="column-move-button" type="button" :aria-label="`${column.name}向后移动`" :disabled="columnIndex === columns.length - 1 || movingColumns" @click="moveColumn(columnIndex, 1)">↓</button>
             </div>
@@ -225,7 +227,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import ImageLightbox from '../components/ImageLightbox.vue';
 import MobileCheckinJournal from '../components/MobileCheckinJournal.vue';
 import { useDailyLog } from '../state.js';
@@ -242,6 +244,7 @@ const {
   markTodayCheckin,
   getLearningColumns,
   createLearningColumn,
+  deleteLearningColumn,
   renameLearningColumn,
   reorderLearningColumns,
   saveDraft
@@ -249,6 +252,13 @@ const {
 
 const user = computed(() => currentUser());
 const today = todayKey();
+let dateCheckTimer;
+onMounted(() => {
+  dateCheckTimer = window.setInterval(() => {
+    if (todayKey() !== today) window.location.reload();
+  }, 30_000);
+});
+onUnmounted(() => window.clearInterval(dateCheckTimer));
 const columns = computed(() => getLearningColumns(user.value?.id));
 const todayRecord = computed(() => findTodayCheckin(user.value?.id, today));
 const stats = computed(() => metricsForUser(user.value?.id));
@@ -527,6 +537,17 @@ async function addColumn() {
     notify('success', '新列已添加');
   } catch (error) {
     notify('error', error.message || '新增列失败');
+  }
+}
+
+async function deleteColumn(column) {
+  if (!window.confirm(`确定删除本月「${column.name}」的全部记录和图片？此操作无法撤销。`)) return;
+  try {
+    await deleteLearningColumn(user.value.id, column.id);
+    delete cellDraft[column.id];
+    notify('success', '本月科目已删除');
+  } catch (error) {
+    notify('error', error.message || '删除科目失败');
   }
 }
 

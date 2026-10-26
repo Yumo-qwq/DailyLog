@@ -160,7 +160,7 @@ watch(
 );
 
 const selectedMember = computed(() => members.value.find((item) => item.id === selectedMemberId.value) || null);
-const selectedColumns = computed(() => getLearningColumns(selectedMember.value?.id));
+const selectedColumns = computed(() => getLearningColumns(selectedMember.value?.id, selectedMonth.value));
 const memberRows = computed(() => {
   const dates = monthDates(selectedMonth.value);
   if (memberOrder.value === 'desc') dates.reverse();

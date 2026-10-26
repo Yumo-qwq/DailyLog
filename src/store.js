@@ -401,9 +401,9 @@ export function saveState(state) {
   localStorage.setItem(KEY, JSON.stringify(state));
 }
 
-export function getLearningColumns(state, userId) {
+export function getLearningColumns(state, userId, monthKey = todayKey().slice(0, 7)) {
   return (state.learningColumns || [])
-    .filter((item) => item.user_id === userId)
+    .filter((item) => item.user_id === userId && item.month_key === monthKey)
     .sort((a, b) =>
       (a.column_order ?? a.order ?? 0) - (b.column_order ?? b.order ?? 0)
       || String(a.created_at || '').localeCompare(String(b.created_at || ''))
