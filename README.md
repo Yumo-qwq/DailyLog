@@ -35,7 +35,7 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Gradle 会先执行 `npm run build:android-web`，然后生成带版本号的 `android/app/build/outputs/apk/debug/DailyLog-v1.0.3.apk`。Android 版本号在 `android/app/build.gradle.kts` 中维护；当前为 `1.0.3`，后续小修改递增补丁号和 `versionCode`，大版本由用户决定。本机 WSL 的 SDK 位于 `/opt/dailylog-android-sdk`，对应设置保存在忽略提交的 `android/local.properties`；其他机器可通过 Android Studio 配置 SDK，或设置 `ANDROID_HOME`。发布给他人时需另行配置正式签名，调试 APK 只适合安装测试。
+Gradle 会先执行 `npm run build:android-web`，然后生成带版本号的 `android/app/build/outputs/apk/debug/DailyLog-v1.0.4.apk`。Android 版本号在 `android/app/build.gradle.kts` 中维护；当前为 `1.0.4`，后续小修改递增补丁号和 `versionCode`，大版本由用户决定。本机 WSL 的 SDK 位于 `/opt/dailylog-android-sdk`，对应设置保存在忽略提交的 `android/local.properties`；其他机器可通过 Android Studio 配置 SDK，或设置 `ANDROID_HOME`。发布给他人时需另行配置正式签名，调试 APK 只适合安装测试。
 
 手机选图由系统文件选择器处理；返回手势在有页面历史时返回上一页。管理员邀请邮件仍按服务器端 `DAILYLOG_APP_URL` 打开网页设置密码，完成后可在 APK 中登录。
 
@@ -46,10 +46,10 @@ Gradle 会先执行 `npm run build:android-web`，然后生成带版本号的 `a
 ```env
 VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
-VITE_PUBLIC_APP_URL=https://dailylog-c8a.pages.dev/
+VITE_PUBLIC_APP_URL=https://dailylog.top/
 ```
 
-`VITE_PUBLIC_APP_URL` 可选；未填写时使用当前项目的公开网址。找回密码邮件统一回到该网站的 `/reset-password` 页面，因此 Android 用户也在浏览器中完成改密。需要先部署包含该页面的新版网页。
+`VITE_PUBLIC_APP_URL` 可选；网页版未填写时使用当前网页域名，Android 包未填写时使用 `https://dailylog.top/`。找回密码邮件回到该网站的 `/reset-password` 页面，因此 Android 用户也在浏览器中完成改密。部署时请把该值设为实际使用的正式域名，并确认网站已包含该页面。
 
 全新 Supabase 项目需要按顺序执行以下迁移，也可以复制 `supabase/complete_setup.sql` 一次执行：
 
@@ -102,16 +102,16 @@ supabase functions delete username-login
 
 Supabase Dashboard → Authentication → URL Configuration 中还要配置：
 
-- Site URL：`https://dailylog-c8a.pages.dev/`
-- Redirect URLs：`https://dailylog-c8a.pages.dev/set-password` 和 `https://dailylog-c8a.pages.dev/reset-password`
+- Site URL：`https://dailylog.top/`（或实际使用的正式域名）
+- Redirect URLs：`https://dailylog.top/set-password` 和 `https://dailylog.top/reset-password`；若仍使用 `dailylog-c8a.pages.dev`，也将对应两个地址加入允许列表
 - Authentication → Providers → Email：保持启用
-- Authentication → SMTP：生产环境配置自己的 SMTP；否则邀请邮件可能使用开发邮件服务或无法稳定送达
+- Authentication → SMTP：使用 Supabase 的 Resend 集成时，在 Supabase Dashboard 确认自定义 SMTP 已启用、发件地址属于 Resend 已验证域名，并在 Resend 查看发信状态；Resend API Key 只属于 Supabase 服务端配置，不能写入 `VITE_*` 变量或 Android 包
 
 管理员在“管理员”页面填写邮箱、`username`、昵称和角色，点击“发送邀请”。用户打开邮件中的链接，在 `/set-password` 页面自行设置密码。管理员和开发者不会看到这个密码。
 
 首次邀请流程中的临时会话由 Supabase Auth 处理。设置密码后，用户以后直接使用邮箱和自己的密码登录。
 
-忘记密码时可在登录页发送邮件；已登录用户可从“个人资料”向当前登录邮箱发送改密邮件。邮件链接验证后打开 `/reset-password`，设置新密码后重新登录。这项功能使用 Supabase Auth，不需要新增 SQL 迁移。Supabase 的“Reset Password”邮件模板应保留有效的验证链接，且正式使用时需要配置可稳定发信的 SMTP。
+忘记密码时可在登录页发送邮件；已登录用户可从“个人资料”向当前登录邮箱发送改密邮件。邮件链接验证后打开 `/reset-password`，设置新密码后重新登录。这项功能使用 Supabase Auth，不需要新增 SQL 迁移。Supabase 的“Reset Password”邮件模板应保留有效的验证链接。若发送请求返回 HTTP 500，先用响应头中的 `sb-request-id` 在 Supabase Authentication 日志定位错误，再检查 Resend 发件域名、SMTP 凭据和邮件模板；仅从前端的 HTTP 500 无法确定具体故障。
 
 基础远端 API 验证：
 

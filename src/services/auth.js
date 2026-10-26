@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.js';
+import { passwordResetError } from './passwordResetError.js';
 
 const recoveryListeners = new Set();
 let recoverySession = null;
@@ -57,10 +58,12 @@ export async function requestPasswordResetEmail(email) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail) throw new Error('请填写邮箱');
 
-  const webAppUrl = import.meta.env.VITE_PUBLIC_APP_URL || 'https://dailylog-c8a.pages.dev/';
+  const isAndroidAsset = typeof window !== 'undefined' && window.location.hostname === 'appassets.androidplatform.net';
+  const webAppUrl = import.meta.env.VITE_PUBLIC_APP_URL
+    || (isAndroidAsset ? 'https://dailylog.top/' : window.location.origin);
   const redirectTo = new URL('/reset-password', webAppUrl).toString();
   const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
-  if (error) throw error;
+  if (error) throw passwordResetError(error);
 }
 
 export function onPasswordRecovery(listener) {
